@@ -4,18 +4,18 @@ import LocomotiveScroll from "locomotive-scroll";
 import Navbar from "./components/Navbar";
 import LandingPage from "./components/LandingPage";
 import Slider from "./components/Slider";
-import Loader from "./components/Loader"; // Import the Loader component
+import Loader from "./components/Loader";
 import "locomotive-scroll/dist/locomotive-scroll.css";
 import "./App.css";
 
-// Lazy load SignIn and SignUp components
+// Lazy load components
 const SignIn = lazy(() => import("./components/Signin"));
 const SignUp = lazy(() => import("./components/SignUp"));
+const Dashboard = lazy(() => import("./components/Dashboard"));
 
 const App = () => {
-  const [isLoading, setIsLoading] = useState(true); // State to track loading status
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Preload assets (images, fonts, etc.)
   useEffect(() => {
     const preloadAssets = async () => {
       const images = ["./testing (2).jpg"]; // Add all image paths here
@@ -66,10 +66,12 @@ const App = () => {
 
   return (
     <Router>
+      {/* AuthProvider is now in index.jsx, so it's removed here */}
       {isLoading ? (
         <Loader /> // Show loader while assets are loading
       ) : (
         <Routes>
+          {/* Home Route */}
           <Route
             path="/"
             element={
@@ -80,6 +82,8 @@ const App = () => {
               </LocomotiveScrollWrapper>
             }
           />
+
+          {/* Auth Routes */}
           <Route
             path="/signin"
             element={
@@ -96,6 +100,18 @@ const App = () => {
               <Suspense fallback={<Loader />}>
                 <LocomotiveScrollWrapper>
                   <SignUp />
+                </LocomotiveScrollWrapper>
+              </Suspense>
+            }
+          />
+
+          {/* Dashboard Route */}
+          <Route
+            path="/dashboard"
+            element={
+              <Suspense fallback={<Loader />}>
+                <LocomotiveScrollWrapper>
+                  <Dashboard />
                 </LocomotiveScrollWrapper>
               </Suspense>
             }

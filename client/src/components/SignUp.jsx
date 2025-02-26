@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { register, verifyOTP } from "../api/api"; // Import API functions
+import { motion } from "framer-motion";
 
 const SignUp = () => {
   const [email, setEmail] = useState("");
@@ -9,6 +9,8 @@ const SignUp = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const handleGetOtp = async () => {
@@ -16,25 +18,39 @@ const SignUp = () => {
       alert("Passwords do not match");
       return;
     }
+    setLoading(true);
     try {
-      // Call register API to get OTP
-      await register(email, password);
-      setOtpSent(true);
-      alert("OTP sent to your email!");
+      const response = await register(email, password);
+      if (response.message === "OTP sent to your email") {
+        setOtpSent(true);
+        alert("OTP sent to your email!");
+      } else {
+        throw new Error("Failed to send OTP");
+      }
     } catch (error) {
-      alert(error.response?.data?.message || "Failed to send OTP");
+      setError(error.message);
+      alert(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSignUp = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
-      // Verify OTP
-      await verifyOTP(email, otp);
-      alert("Sign up successful!");
-      navigate("/dashboard"); // Redirect to dashboard or home
+      const response = await verifyOTP(email, otp);
+      if (response.message === "User registered successfully") {
+        alert("Registration successful! Please sign in.");
+        navigate("/signin"); // Redirect to sign-in page
+      } else {
+        throw new Error("Failed to sign up");
+      }
     } catch (error) {
-      alert(error.response?.data?.message || "Failed to sign up");
+      setError(error.message);
+      alert(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 

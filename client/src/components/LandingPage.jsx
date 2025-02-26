@@ -90,7 +90,8 @@ const LandingPage = ({ isLoading }) => {
           transition={{ duration: 1.2, delay: 0.8 }}
           className="text-sm md:text-lg text-center mt-6 font-medium"
         >
-          “A game-changer for skill exchange and collaborations.”
+          “A game-changer for skill exchange and collaboratio
+ns.”
         </motion.p>
       </motion.div>
     </div>

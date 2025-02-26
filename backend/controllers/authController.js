@@ -1,7 +1,7 @@
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const sendOTP = require('../utils/emailService');
-const generateToken = require('../utils/generateToken');
 
 // Store OTPs temporarily in memory
 const otpStore = new Map();
@@ -115,6 +115,7 @@ const login = async (req, res) => {
   }
 };
 
+// Verify login OTP
 const verifyLoginOTP = async (req, res) => {
   const { email, otp } = req.body;
 
@@ -130,28 +131,78 @@ const verifyLoginOTP = async (req, res) => {
     const storedData = otpStore.get(normalizedEmail);
 
     if (!storedData || storedData.otp.trim() !== otp.trim() || storedData.otpExpiry < Date.now()) {
-      console.log('Invalid or expired OTP');
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
 
     // Find the user
     const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
-      console.log('User not found');
       return res.status(400).json({ message: 'User not found' });
     }
 
     // Generate JWT token
-    const token = generateToken(user._id);
-    console.log('Generated Token:', token);
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    // Set token as an HTTP-only cookie
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: false, // For local development without HTTPS
+      sameSite: 'lax', // Allow cross-site cookies
+      maxAge: 3600000, // 1 hour
+      path: '/', // Make the cookie accessible across the entire domain
+    });
 
     // Clear OTP from memory
     otpStore.delete(normalizedEmail);
 
-    res.status(200).json({ message: 'Login successful', token });
+    res.status(200).json({ message: 'Login successful', user: { email: user.email } });
   } catch (err) {
-    console.error('Server Error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
-module.exports = { register, login, verifyOTP, verifyLoginOTP };
+
+// Logout user
+const logout = async (req, res) => {
+  try {
+    // Clear the token cookie
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+    });
+
+    res.status(200).json({ message: 'Logout successful' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// Check authentication status
+const checkAuth = async (req, res) => {
+  try {
+    const token = req.cookies.token; // Get the token from cookies
+    console.log('Token from cookies (backend):', token); // Debugging
+
+    if (!token) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    // Verify the token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('Decoded token:', decoded); // Debugging
+
+    const user = await User.findById(decoded.userId);
+    console.log('User from database:', user); // Debugging
+
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    // Return the user's email
+    res.status(200).json({ user: { email: user.email } });
+  } catch (err) {
+    console.error('Auth check error:', err);
+    res.status(500).json({ message: 'Server error checking authentication' });
+  }
+};
+module.exports = { register, login, verifyOTP, verifyLoginOTP, logout, checkAuth };

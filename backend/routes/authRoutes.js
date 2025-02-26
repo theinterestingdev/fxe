@@ -1,10 +1,20 @@
 const express = require('express');
-const { register, login, verifyOTP,verifyLoginOTP } = require('../controllers/authController');
+const {
+  register,
+  login,
+  verifyOTP,
+  verifyLoginOTP,
+  logout,
+  checkAuth,
+} = require('../controllers/authController'); // Import all controller functions
 const router = express.Router();
 
-router.post('/register', register);
-router.post('/login', login);
-router.post('/verify-otp', verifyOTP);
-router.post('/verify-login-otp', verifyLoginOTP);
+// Routes
+router.post('/register', register); // Register a new user
+router.post('/login', login); // Send OTP for login
+router.post('/verify-otp', verifyOTP); // Verify OTP for registration
+router.post('/verify-login-otp', verifyLoginOTP); // Verify OTP for login
+router.post('/logout', logout); // Logout user
+router.get('/check-auth', checkAuth); // Check authentication status
 
 module.exports = router;
