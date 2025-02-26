@@ -1,0 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@200..800&display=swap');
+
+.logo h1 {
+    font-family: "Atkinson Hyperlegible Mono", monospace;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+.container {
+    font-family: "Atkinson Hyperlegible Mono", monospace;
+}
+
+.mask {
+    -webkit-mask-image: url('https://tympanus.net/codrops-playground/assets/images/cssref/properties/mask-position/mask-image.png');
+    mask-image: url('https://tympanus.net/codrops-playground/assets/images/cssref/properties/mask-position/mask-image.png');
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    background-color: rgba(0, 0, 0, 0.8);
+    height: 100%;
+}
+
+section {
+    scroll-snap-align: start;
+    min-height: 100vh;
+}
+
+.motion-element {
+    will-change: transform, opacity;
+  }
