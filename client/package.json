@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@cloudinary/react": "^1.14.1",
+    "@cloudinary/url-gen": "^1.21.0",
     "@gsap/react": "^2.1.2",
     "@studio-freight/lenis": "^1.0.42",
     "@tailwindcss/vite": "^4.0.8",

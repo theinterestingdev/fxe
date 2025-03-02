@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState, lazy, Suspense } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import LocomotiveScroll from "locomotive-scroll";
 import Navbar from "./components/Navbar";
 import LandingPage from "./components/LandingPage";
 import Slider from "./components/Slider";
 import Loader from "./components/Loader";
+import { useAuth } from "./components/AuthContext"; // Import useAuth
 import "locomotive-scroll/dist/locomotive-scroll.css";
 import "./App.css";
 
@@ -12,13 +13,26 @@ import "./App.css";
 const SignIn = lazy(() => import("./components/Signin"));
 const SignUp = lazy(() => import("./components/SignUp"));
 const Dashboard = lazy(() => import("./components/Dashboard"));
+const ProfileSetup = lazy(() => import("./components/ProfileSetup"));
+
+// Protected Route Wrapper
+const ProtectedRoute = ({ children }) => {
+  const { isLoggedIn } = useAuth(); // Use the useAuth hook to check authentication
+
+  // Redirect to signin if not logged in
+  if (!isLoggedIn) {
+    return <Navigate to="/signin" />;
+  }
+
+  return children; // Render the protected component
+};
 
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const preloadAssets = async () => {
-      const images = ["./testing (2).jpg"]; // Add all image paths here
+      const images = ["./testing (2).webp"]; // Add all image paths here
       await Promise.all(
         images.map((src) => {
           return new Promise((resolve, reject) => {
@@ -66,7 +80,6 @@ const App = () => {
 
   return (
     <Router>
-      {/* AuthProvider is now in index.jsx, so it's removed here */}
       {isLoading ? (
         <Loader /> // Show loader while assets are loading
       ) : (
@@ -113,6 +126,20 @@ const App = () => {
                 <LocomotiveScrollWrapper>
                   <Dashboard />
                 </LocomotiveScrollWrapper>
+              </Suspense>
+            }
+          />
+
+          {/* Profile Setup Route (Protected) */}
+          <Route
+            path="/profile-setup"
+            element={
+              <Suspense fallback={<Loader />}>
+                <ProtectedRoute>
+                  <LocomotiveScrollWrapper>
+                    <ProfileSetup />
+                  </LocomotiveScrollWrapper>
+                </ProtectedRoute>
               </Suspense>
             }
           />

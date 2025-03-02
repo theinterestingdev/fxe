@@ -1,17 +1,32 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React from "react";
+import { motion } from "framer-motion";
+import { useAuth } from "./AuthContext";
 
-const LandingPage = ({ isLoading }) => {
+const LandingPage = () => {
+  const { userEmail, isLoading } = useAuth(); // Get isLoading from useAuth
+
+  // Show loading state if AuthProvider is still loading
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-black text-white">
+        <p className="text-xl">Loading...</p>
+      </div>
+    );
+  }
+
+  // Derive username only after userEmail is available
+  const username = userEmail ? userEmail.split("@")[0] : "User";
+
   return (
     <div className="relative w-full h-screen overflow-hidden">
       {/* Background Image */}
       <motion.img
         className="w-full h-screen object-cover"
-        src="./testing (2).jpg"
+        src="./testing (2).webp"
         alt="Team"
         initial={{ scale: 1.2 }}
-        animate={!isLoading ? { scale: 1 } : {}}
-        transition={{ duration: 1.5, ease: 'easeOut' }}
+        animate={{ scale: 1 }}
+        transition={{ duration: 1.5, ease: "easeOut" }}
         loading="lazy"
       />
 
@@ -21,7 +36,7 @@ const LandingPage = ({ isLoading }) => {
       {/* Main Content */}
       <motion.div
         initial="hidden"
-        animate={!isLoading ? "visible" : "hidden"}
+        animate="visible"
         variants={{
           hidden: { opacity: 0 },
           visible: { opacity: 1, transition: { staggerChildren: 0.3 } },
@@ -33,11 +48,22 @@ const LandingPage = ({ isLoading }) => {
             hidden: { opacity: 0, x: 80 },
             visible: { opacity: 1, x: 0 },
           }}
-          transition={{ duration: 1.2, ease: 'easeOut' }}
+          transition={{ duration: 1.2, ease: "easeOut" }}
           className="ml-3 text-4xl md:text-6xl lg:text-7xl font-extrabold tracking-wide leading-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300"
         >
-          Connect. Collaborate. Succeed.
+          Welcome, {username}!
         </motion.h1>
+
+        <motion.p
+          variants={{
+            hidden: { opacity: 0, y: 20 },
+            visible: { opacity: 1, y: 0 },
+          }}
+          transition={{ duration: 1.2, ease: "easeOut", delay: 0.2 }}
+          className="mt-4 text-lg md:text-xl"
+        >
+          Connect. Collaborate. Succeed.
+        </motion.p>
 
         <motion.button
           variants={{
@@ -46,13 +72,13 @@ const LandingPage = ({ isLoading }) => {
           }}
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
-          transition={{ duration: 1.2, ease: 'easeOut', delay: 0.4 }}
+          transition={{ duration: 1.2, ease: "easeOut", delay: 0.4 }}
           className="relative md:mt-53 px-6 py-3 w-3/4 md:w-1/3 lg:w-1/4 mt-64 rounded-full text-lg font-medium bg-gradient-to-r from-black to-zinc-400 shadow-lg overflow-hidden"
         >
           <motion.div
             className="absolute inset-0 rounded-full border-2 border-white cursor-pointer"
-            animate={!isLoading ? { opacity: [0, 1, 0] } : {}}
-            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+            animate={{ opacity: [0, 1, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
           />
           Get Started
         </motion.button>
@@ -61,14 +87,14 @@ const LandingPage = ({ isLoading }) => {
       {/* Testimonial 1 */}
       <motion.div
         initial={{ opacity: 0, x: -50, y: -50 }}
-        animate={!isLoading ? { opacity: 1, x: 0, y: 0 } : {}}
-        transition={{ duration: 1.2, ease: 'easeOut' }}
+        animate={{ opacity: 1, x: 0, y: 0 }}
+        transition={{ duration: 1.2, ease: "easeOut" }}
         whileHover={{ scale: 1.05 }}
         className="absolute top-16 left-6 md:top-24 md:left-12 text-white rounded-md shadow-lg p-4 md:p-6 max-w-xs md:max-w-sm"
       >
         <motion.p
           initial={{ opacity: 0 }}
-          animate={!isLoading ? { opacity: 1 } : {}}
+          animate={{ opacity: 1 }}
           transition={{ duration: 1.2, delay: 0.5 }}
           className="text-center text-sm md:text-lg font-medium"
         >
@@ -79,19 +105,18 @@ const LandingPage = ({ isLoading }) => {
       {/* Testimonial 2 */}
       <motion.div
         initial={{ opacity: 0, x: 50, y: 50 }}
-        animate={!isLoading ? { opacity: 1, x: 0, y: 0 } : {}}
-        transition={{ duration: 1.2, ease: 'easeOut', delay: 0.3 }}
+        animate={{ opacity: 1, x: 0, y: 0 }}
+        transition={{ duration: 1.2, ease: "easeOut", delay: 0.3 }}
         whileHover={{ scale: 1.05 }}
         className="absolute bottom-3 right-7 md:bottom-16 md:right-10 text-white rounded-md shadow-lg p-4 md:p-6 max-w-xs md:max-w-sm"
       >
         <motion.p
           initial={{ opacity: 0 }}
-          animate={!isLoading ? { opacity: 1 } : {}}
+          animate={{ opacity: 1 }}
           transition={{ duration: 1.2, delay: 0.8 }}
           className="text-sm md:text-lg text-center mt-6 font-medium"
         >
-          “A game-changer for skill exchange and collaboratio
-ns.”
+          “A game-changer for skill exchange and collaborations.”
         </motion.p>
       </motion.div>
     </div>

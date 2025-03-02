@@ -2,89 +2,85 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 
 const AuthContext = createContext({
   isLoggedIn: false,
+  userId: "",
   userEmail: "",
+  isLoading: true,
   setAuth: () => {},
   logout: () => {},
 });
 
 export const AuthProvider = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userId, setUserId] = useState("");
   const [userEmail, setUserEmail] = useState("");
-
-  const login = (email) => {
-    console.log("Setting authentication state for email:", email); // Debugging
-    setIsLoggedIn(true);
-    setUserEmail(email);
-  };
+  const [isLoading, setIsLoading] = useState(true);
 
   const checkAuth = async () => {
     try {
-      console.log('Calling checkAuth...'); // Debugging
-      const response = await fetch('http://localhost:5000/api/auth/check-auth', {
-        credentials: 'include', // Include cookies in the request
+      const response = await fetch("http://localhost:5000/api/auth/check-auth", {
+        credentials: "include",
       });
 
-      console.log('checkAuth response status:', response.status); // Debugging
-
-      if (!response.ok) {
-        throw new Error('Failed to check authentication status');
-      }
+      if (!response.ok) throw new Error("Failed to check authentication status");
 
       const data = await response.json();
-      console.log('checkAuth response data:', data); // Debugging
 
       if (data.user) {
         setIsLoggedIn(true);
+        setUserId(data.user.id);
         setUserEmail(data.user.email);
+        
       } else {
         setIsLoggedIn(false);
+        setUserId("");
         setUserEmail("");
+        
       }
     } catch (error) {
-      console.error('Error checking auth:', error);
       setIsLoggedIn(false);
+      setUserId("");
       setUserEmail("");
+      
+    } finally {
+      setIsLoading(false);
+      
     }
   };
 
   useEffect(() => {
-    checkAuth(); // Call checkAuth to verify authentication status
-  }, []); // Empty dependency array to run only once on mount
+    
+    checkAuth();
+  }, []);
 
-  const setAuth = (email, token) => {
+  const setAuth = (id, email) => {
     setIsLoggedIn(true);
+    setUserId(id);
     setUserEmail(email);
+    
   };
 
   const logout = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include', // Include cookies in the request
+      await fetch("http://localhost:5000/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to logout');
-      }
-
       setIsLoggedIn(false);
+      setUserId("");
       setUserEmail("");
+      
     } catch (error) {
-      console.error('Error during logout:', error);
+      
     }
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, userEmail,login,setAuth, logout }}>
+    <AuthContext.Provider
+      value={{ isLoggedIn, userId, userEmail, isLoading, setAuth, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export const useAuth = () => useContext(AuthContext);

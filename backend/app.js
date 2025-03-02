@@ -1,9 +1,10 @@
 const express = require('express');
 const connectDB = require('./config/db');
-const authRoutes = require('./routes/authRoutes');
+const authRoutes = require('./routes/authRoutes'); // Import Auth Routes
+const profileRoutes = require('./routes/profileRoutes'); // Import Profile Routes
 const dotenv = require('dotenv');
 const cors = require('cors');
-const cookieParser = require('cookie-parser'); // Add this line
+const cookieParser = require('cookie-parser');
 
 dotenv.config();
 
@@ -17,10 +18,11 @@ app.use(
   })
 );
 app.use(express.json());
-app.use(cookieParser()); // Add this line to parse cookies
+app.use(cookieParser());
 
 // Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes); // ✅ Auth routes are now correctly mapped
+app.use('/api/profile', profileRoutes); // ✅ Profile routes are now correctly mapped
 
 // Connect to MongoDB
 connectDB();

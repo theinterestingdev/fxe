@@ -49,8 +49,13 @@ const SignIn = () => {
     try {
       const response = await verifyLoginOTP(email, otp);
       if (response.message === "Login successful") {
-        setAuth(response.user.email); // Update authentication state
-        navigate("/dashboard");
+        // Ensure the response contains both id and email
+        if (response.user && response.user.id && response.user.email) {
+          setAuth(response.user.id, response.user.email); // Pass both id and email
+          navigate("/dashboard");
+        } else {
+          throw new Error("Invalid user data received");
+        }
       } else {
         throw new Error("Failed to sign in");
       }

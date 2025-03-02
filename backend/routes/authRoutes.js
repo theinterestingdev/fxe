@@ -6,10 +6,11 @@ const {
   verifyLoginOTP,
   logout,
   checkAuth,
-} = require('../controllers/authController'); // Import all controller functions
+} = require('../controllers/authController'); // Import all auth controller functions
+
 const router = express.Router();
 
-// Routes
+// Auth Routes
 router.post('/register', register); // Register a new user
 router.post('/login', login); // Send OTP for login
 router.post('/verify-otp', verifyOTP); // Verify OTP for registration
