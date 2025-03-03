@@ -10,7 +10,7 @@ import "locomotive-scroll/dist/locomotive-scroll.css";
 import "./App.css";
 
 // Lazy load components
-const SignIn = lazy(() => import("./components/Signin"));
+const SignIn = lazy(() => import("./components/SignIn"));
 const SignUp = lazy(() => import("./components/SignUp"));
 const Dashboard = lazy(() => import("./components/Dashboard"));
 const ProfileSetup = lazy(() => import("./components/ProfileSetup"));
