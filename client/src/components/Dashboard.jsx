@@ -55,16 +55,16 @@ const Dashboard = () => {
     }
   ]);
 
-  // Fetch user profiles for chat
+  
   const fetchUserProfiles = useCallback(async () => {
     try {
       console.log('Dashboard: Fetching user profiles');
       
-      // Try multiple endpoints if the first one fails
+      
       let response;
       let data = [];
       
-      // First attempt - try the dedicated profile endpoint
+      
       try {
         response = await fetch('http://localhost:5000/api/profile/all', {
           credentials: 'include',
@@ -81,7 +81,7 @@ const Dashboard = () => {
         console.log('Dashboard: First profile fetch attempt failed:', error.message);
       }
       
-      // If first attempt failed, try users endpoint
+      
       if (data.length === 0) {
         try {
           response = await fetch('http://localhost:5000/api/users', {
@@ -100,18 +100,18 @@ const Dashboard = () => {
         }
       }
       
-      // If we still have no data, fallback to socket
+      
       if (data.length === 0 && socket && socket.connected) {
         console.log('Dashboard: Requesting user list from socket');
         socket.emit('getUsersList');
-        return; // Socket will handle setting the users via the usersList event
+        return;
       }
       
-      // If we have data, process it
+      
       if (data.length > 0) {
         console.log('Dashboard: Processing fetched user data:', data);
         
-        // Filter out current user and transform to chat format
+        
         const otherUsers = data
           .filter(profile => {
             const profileId = profile.userId || profile._id;
@@ -133,13 +133,13 @@ const Dashboard = () => {
         setUserProfiles(data);
         setChats(otherUsers);
         
-        // Get chat history if we're connected
+        
         if (socket && socket.connected) {
           socket.emit('getChatHistory', userId);
         }
       } else {
         console.warn('Dashboard: No user profiles found through API endpoints');
-        // Request users list from socket as last resort
+        
         if (socket && socket.connected) {
           socket.emit('getUsersList');
         }
@@ -148,26 +148,26 @@ const Dashboard = () => {
       console.error('Dashboard: Error in fetchUserProfiles:', error);
       setError('Failed to load contacts. Please try again later.');
       
-      // Try socket as fallback
+      
       if (socket && socket.connected) {
         socket.emit('getUsersList');
       }
     }
   }, [userId, socket]);
 
-  // Setup socket events 
+  
   useEffect(() => {
     if (!socket) return;
 
     console.log('Dashboard: Setting up socket event listeners');
     
-    // Fetch profiles and chat history when socket connects
+    
     if (socket.connected) {
       console.log('Dashboard: Socket already connected, fetching data');
       fetchUserProfiles();
     }
     
-    // Setup connection handler
+    
     const handleConnect = () => {
       console.log('Dashboard: Socket connected');
       socket.emit('registerUser', {
@@ -178,7 +178,7 @@ const Dashboard = () => {
       });
       fetchUserProfiles();
 
-      // Ask for any pending notifications on connect
+      
       socket.emit('getNotifications', userId);
     };
     
@@ -200,11 +200,11 @@ const Dashboard = () => {
     socket.on('userStatusUpdate', handleUserStatus);
     socket.on('initialOnlineUsers', handleInitialUsers);
 
-    // Listen for notifications
+    
     socket.on('notification', (notification) => {
       if (notification.recipientId === userId || notification.recipient === userId) {
         console.log('Dashboard: Received notification:', notification);
-        // Format notification to ensure consistency
+        
         const formattedNotification = {
           id: notification.id || notification._id || Date.now().toString(),
           from: notification.from || notification.senderName || 'System',
@@ -220,7 +220,7 @@ const Dashboard = () => {
           setUnreadNotifications(prev => prev + 1);
         }
         
-        // Add to recent activities if it's a new notification
+        
         if (!formattedNotification.read) {
           const newActivity = {
             id: `activity-${formattedNotification.id}`,
@@ -240,7 +240,7 @@ const Dashboard = () => {
       }
     });
 
-    // Add handlers for notification lists
+    
     socket.on('notifications', (notifications) => {
       if (notifications && Array.isArray(notifications)) {
         console.log('Dashboard: Received notifications list:', notifications);
@@ -260,17 +260,17 @@ const Dashboard = () => {
       }
     });
 
-    // Listen for available users
+    
     socket.on('usersList', (users) => {
       console.log('Dashboard: Received usersList from socket:', users);
       
-      // Filter out current user and format for chat display
+      
       const filteredUsers = users
         .filter(user => user._id !== userId)
         .map(user => ({
           id: user._id,
           name: user.username || user.name || (user.email ? user.email.split('@')[0] : `User-${user._id.substring(0, 5)}`),
-          username: user.username || '', // Store the username separately
+          username: user.username || '',
           avatar: user.profileImage || user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username || user._id}`,
           lastMessage: '',
           timestamp: new Date(),
@@ -279,32 +279,32 @@ const Dashboard = () => {
       
       console.log('Dashboard: Processed users from socket:', filteredUsers.length);
       
-      // Only set chats if we don't already have them
+      
       if (chats.length === 0) {
         setChats(filteredUsers);
       }
     });
 
-    // Listen for chat history to update our chat list
+    
     socket.on('chatHistory', (history) => {
       console.log('Dashboard: Received chat history:', history);
       
       if (!history || !history.conversations) return;
       
-      // Update chats with real conversation data
+      
       setChats(prevChats => {
         const updatedChats = [...prevChats];
         
-        // For each conversation in history, update our chat list
+        
         history.conversations.forEach(conversation => {
           const partnerId = conversation.partnerId;
           if (!partnerId) return;
           
-          // Find the chat in our list
+        
           const chatIndex = updatedChats.findIndex(c => c.id === partnerId);
           
           if (chatIndex >= 0) {
-            // Chat exists, update with last message
+            
             const messages = conversation.messages || [];
             if (messages.length > 0) {
               const lastMsg = messages[messages.length - 1];
@@ -312,7 +312,7 @@ const Dashboard = () => {
                 ...updatedChats[chatIndex],
                 lastMessage: lastMsg.text || '',
                 timestamp: new Date(lastMsg.timestamp),
-                // Count unread messages (those where user is recipient and not read)
+                
                 unread: messages.filter(m => 
                   m.receiver === userId && 
                   m.sender === partnerId && 

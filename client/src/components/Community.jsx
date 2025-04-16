@@ -33,34 +33,34 @@ const Community = () => {
   const [playingVideo, setPlayingVideo] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState({});
   
-  // Add this with the other refs at the top of the component
+  
   const prevConnectedRef = useRef(false);
 
-  // Use our new hook
+  
   const { preloadVideo, preloadInitialVideos } = useVideoOptimizer();
   
-  // Add video optimization state
+  
   const [isVideoMuted, setIsVideoMuted] = useState(true);
   const [videoLoadStatus, setVideoLoadStatus] = useState({});
 
-  // At the beginning of the component, add these lines with other refs
+  
   const messagesContainerRef = useRef(null);
   const commentsContainerRef = useRef(null);
   const chatMessagesRef = useRef(null);
 
-  // Add this function near the top of the component after state declarations
+  
   const sendBrowserNotification = useCallback((title, body, icon = '/favicon.ico') => {
     try {
-      // Only run on client side
+      
       if (typeof window === 'undefined' || typeof Notification === 'undefined') {
         return;
       }
       
-      // Check if we have permission
+    
       if (Notification.permission === 'granted') {
         new Notification(title, { body, icon });
       } else if (Notification.permission !== 'denied') {
-        // Request permission if not denied
+        
         Notification.requestPermission().then(permission => {
           if (permission === 'granted') {
             new Notification(title, { body, icon });
@@ -72,16 +72,16 @@ const Community = () => {
     }
   }, []);
 
-  // Move fetchPostsData outside of useEffect and wrap in useCallback
+  
   const fetchPostsData = useCallback(async () => {
     try {
       setLoading(true);
       const data = await fetchProjects();
-      console.log("Fetched projects data:", data); // Debug log
+      console.log("Fetched projects data:", data); 
       
-      // Transform projects into posts format with proper error handling
+      
       const formattedPosts = data.map(project => {
-        // Extract user info more safely with proper username priority
+      
         const username = 
           project.username || 
           (project.userId && typeof project.userId === 'object' && project.userId.name) ||
@@ -89,7 +89,7 @@ const Community = () => {
           (typeof project.userId === 'string' && project.userId.includes('@') ? project.userId.split('@')[0] : project.userId) || 
           'user';
         
-        // Log username determination for debugging
+        
         console.log(`Project ${project._id}: username=${username}, source=${
           project.username ? 'project.username' :
           (project.userId && typeof project.userId === 'object' && project.userId.name) ? 'userId.name' :
@@ -104,7 +104,7 @@ const Community = () => {
           username,
           title: project.title || 'Untitled Project',
           description: project.description || 'No description provided',
-          // Check for video link first, then screenshots, then fallback to other image sources
+          
           videoLink: project.videoLink || null,
           imageUrl: Array.isArray(project.screenshots) && project.screenshots.length > 0 
                   ? project.screenshots[0] 
@@ -117,14 +117,14 @@ const Community = () => {
         };
       });
       
-      console.log("Formatted posts:", formattedPosts); // Debug log
+      console.log("Formatted posts:", formattedPosts); 
       
-      // Sort posts by timestamp (newest first)
+      
       formattedPosts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       
       setPosts(formattedPosts);
       
-      // Initialize comments state
+      
       const initialComments = {};
       formattedPosts.forEach(post => {
         initialComments[post.id] = post.comments || [];
@@ -137,12 +137,12 @@ const Community = () => {
     }
   }, [userId]);
 
-  // Fetch posts (projects) data
+  
   useEffect(() => {
     fetchPostsData();
   }, [userId, fetchPostsData]);
 
-  // Socket connection for real-time notifications and messages
+  
   useEffect(() => {
     if (!socket) {
       console.log('No socket connection available');
@@ -151,14 +151,10 @@ const Community = () => {
 
     console.log('Setting up socket listeners for chat');
 
-    // Listen for socket connection events for debugging
+    
     const onConnect = () => {
       console.log('Socket connected successfully');
-      
-      // Register the user immediately upon connection
       socket.emit('registerUser', userId);
-      
-      // Request chat history once connected
       socket.emit('getChatHistory', userId);
     };
     
@@ -174,23 +170,23 @@ const Community = () => {
     socket.on('disconnect', onDisconnect);
     socket.on('connect_error', onError);
 
-    // If already connected, register and get chat history
+  
     if (socket.connected) {
       console.log('Socket already connected, registering user');
       socket.emit('registerUser', userId);
       socket.emit('getChatHistory', userId);
     }
 
-    // Listen for notifications
+    
     socket.on('notification', (notification) => {
       console.log('Received notification:', notification);
-      // Only add notification if it's meant for this user
+      
       if (notification.recipientId === userId) {
         setNotifications(prev => [notification, ...prev]);
       }
     });
 
-    // Listen for private messages
+    
     socket.on('receivePrivateMessage', (message) => {
       console.log('Received private message:', message);
       
@@ -199,34 +195,34 @@ const Community = () => {
         return;
       }
       
-      // Only handle messages for this user (as sender or receiver)
+      
       if (message.receiver === userId || message.sender === userId) {
         const partnerId = message.sender === userId ? message.receiver : message.sender;
         
         setMessages(prev => {
           const existingMessages = prev[partnerId] || [];
           
-          // Check if message is already in the array to prevent duplicates
+        
           const existingIndex = existingMessages.findIndex(msg => msg.id === message.id);
           
           if (existingIndex >= 0) {
-            // If message exists, update it (e.g., with confirmed status)
+            
             const updatedMessages = [...existingMessages];
             
-            // If this is a confirmation of our own message
+            
             if (message.sender === userId) {
               updatedMessages[existingIndex] = {
                 ...updatedMessages[existingIndex],
                 confirmed: true
               };
             } else {
-              // For received messages, update with any new fields from server
+              
               updatedMessages[existingIndex] = {
                 ...updatedMessages[existingIndex],
                 ...message
               };
               
-              // If we're actively chatting with this user, mark message as read
+              
               if (activeChatUser === message.sender && socket) {
                 socket.emit('markMessageRead', { messageId: message.id });
               }
@@ -238,14 +234,14 @@ const Community = () => {
             };
           }
           
-          // If it's a new message
+          
           const newMessage = {
             ...message,
-            // If we're the sender, it's from server so mark as confirmed
+            
             confirmed: message.sender === userId
           };
           
-          // If we're actively chatting with this user, mark message as read
+          
           if (activeChatUser === message.sender && socket) {
             socket.emit('markMessageRead', { messageId: message.id });
             newMessage.read = true;
@@ -257,7 +253,7 @@ const Community = () => {
           };
         });
         
-        // Auto-scroll messages container if active chat matches this message
+        
         if (activeChatUser === (message.sender === userId ? message.receiver : message.sender)) {
           setTimeout(() => {
             if (chatMessagesRef.current) {
@@ -265,9 +261,7 @@ const Community = () => {
             }
           }, 100);
         }
-        
-        // If this is a new message from another user and we're not currently chatting with them,
-        // add a notification
+
         if (message.sender !== userId && activeChatUser !== message.sender) {
           if (document && !document.hasFocus()) {
             const senderName = userProfiles.find(profile => profile.userId === message.sender)?.name || 
@@ -280,7 +274,7 @@ const Community = () => {
       }
     });
 
-    // Listen for post likes updates
+    
     socket.on('postLiked', (data) => {
       setPosts(prev => prev.map(post => 
         post.id === data.postId 
@@ -289,7 +283,7 @@ const Community = () => {
       ));
     });
 
-    // Listen for new comments
+    
     socket.on('newComment', (data) => {
       if (data.postId) {
         setComments(prev => ({
@@ -299,7 +293,7 @@ const Community = () => {
       }
     });
 
-    // Listen for unread notifications
+    
     socket.on('unreadNotifications', (unreadNotifications) => {
       setNotifications(prev => [...unreadNotifications, ...prev]);
     });
@@ -346,7 +340,7 @@ const Community = () => {
         Object.keys(prev).forEach(partnerId => {
           const msgIndex = prev[partnerId].findIndex(msg => msg.id === data.messageId);
           if (msgIndex !== -1) {
-            // Create a new array with the message marked as read
+            
             const updatedConversation = [...prev[partnerId]];
             updatedConversation[msgIndex] = {
               ...updatedConversation[msgIndex],
@@ -379,11 +373,11 @@ const Community = () => {
     };
   }, [socket, userId, activeChatUser]);
 
-  // Add a function to mark messages as read when active chat changes
+  
   useEffect(() => {
     if (!socket || !activeChatUser || !isConnected) return;
     
-    // When a chat becomes active, mark all messages from this user as read
+  
     const unreadMessages = messages[activeChatUser]?.filter(
       msg => msg.sender === activeChatUser && !msg.read
     ) || [];
@@ -391,7 +385,7 @@ const Community = () => {
     if (unreadMessages.length > 0) {
       console.log(`Marking ${unreadMessages.length} messages as read from ${activeChatUser}`);
       
-      // Update local state first
+      
       setMessages(prev => {
         const updatedMessages = [...(prev[activeChatUser] || [])];
         updatedMessages.forEach((msg, index) => {
@@ -406,14 +400,14 @@ const Community = () => {
         };
       });
       
-      // Then notify the server
+      
       unreadMessages.forEach(msg => {
         socket.emit('markMessageRead', { messageId: msg.id });
       });
     }
   }, [activeChatUser, socket, isConnected, messages]);
 
-  // Handle clicks outside of menus
+  
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
@@ -433,7 +427,7 @@ const Community = () => {
     };
   }, []);
 
-  // Scroll stories horizontally
+  
   const scrollStories = (direction) => {
     if (!storiesScrollRef.current) return;
     
@@ -648,7 +642,7 @@ const Community = () => {
                          posts.find(p => p.userId === userId)?.username || 
                          'User';
       
-      // Generate a truly unique message ID
+      
       const uniqueId = `msg-${userId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
       const message = {
@@ -1763,7 +1757,7 @@ const Community = () => {
         )}
       </div>
       
-      {/* Comments dialog */}
+      
       {activeCommentPost && renderCommentDialog()}
     </div>
   );

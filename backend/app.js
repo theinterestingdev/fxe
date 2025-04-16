@@ -12,7 +12,7 @@ const connectDB = require('./config/db');
 const setupChatHandlers = require('./socketHandlers/chatHandlers');
 const dotenv = require('dotenv');
 
-// Load environment variables
+
 dotenv.config();
 
 const app = express();
@@ -23,10 +23,10 @@ const io = new Server(server, {
     methods: ['GET', 'POST'],
     credentials: true
   },
-  pingTimeout: 60000, // Increased timeout for better connection stability
+  pingTimeout: 60000, 
 });
 
-// Middleware
+
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -36,32 +36,31 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/notifications', notificationRoutes);
 
-// Connect to MongoDB
+
 connectDB();
 
-// Track connected users
+
 const users = {};
 
-// WebSocket Server
+
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
   
-  // Setup chat handlers
+  
   setupChatHandlers(io, socket, users);
   
-  // Handle ping (heartbeat) to keep connections alive
+  
   socket.on('ping', () => {
     socket.emit('pong');
   });
   
-  // Listen for errors
+  
   socket.on('error', (error) => {
     console.error('Socket error:', error);
   });
@@ -70,7 +69,7 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
-// Handle server shutdown gracefully
+
 process.on('SIGTERM', () => {
   console.log('SIGTERM signal received: closing HTTP server');
   server.close(() => {

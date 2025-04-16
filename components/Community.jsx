@@ -6,10 +6,10 @@ const Community = ({ socket, userId }) => {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [isDirectChatOpen, setIsDirectChatOpen] = useState(false);
   
-  // Create a map to store video element refs
+  
   const videoRefs = useRef({});
   
-  // Handle online users updates from socket
+  
   useEffect(() => {
     if (!socket) return;
     
@@ -23,54 +23,54 @@ const Community = ({ socket, userId }) => {
     };
   }, [socket]);
 
-  // Handle video autoplay
+  
   const handleVideoInView = (id, inView) => {
     const videoElement = videoRefs.current[id];
     if (!videoElement) return;
     
     if (inView) {
-      // Play video when in view
+      
       videoElement.play().catch(err => {
         console.log('Autoplay prevented:', err);
-        // Add muted attribute and try again for mobile
+        
         videoElement.muted = true;
         videoElement.play().catch(e => 
           console.log('Still cannot autoplay:', e)
         );
       });
     } else {
-      // Pause when out of view
+      
       videoElement.pause();
     }
   };
   
-  // Open direct chat with a user
+  
   const openDirectChat = (user) => {
     setChatUser(user);
     setIsDirectChatOpen(true);
   };
   
-  // Close direct chat
+  
   const closeDirectChat = () => {
     setIsDirectChatOpen(false);
     setChatUser(null);
   };
   
-  // Project list rendering
+  
   const renderProjects = () => {
-    // ... existing code ...
+    
     return projects.map((project) => {
-      // Create ref for IntersectionObserver hook
+      
       const [ref, inView] = useInView({
         threshold: 0.5,
         triggerOnce: false
       });
       
-      // Set up video ref
+      
       const setVideoRef = (element) => {
         if (element) {
           videoRefs.current[project._id] = element;
-          // Initial check for visibility
+        
           if (inView) {
             element.play().catch(err => {
               console.log('Initial autoplay prevented:', err);
@@ -81,7 +81,7 @@ const Community = ({ socket, userId }) => {
         }
       };
       
-      // Watch for changes in view status
+    
       useEffect(() => {
         handleVideoInView(project._id, inView);
       }, [inView, project._id]);
@@ -144,7 +144,7 @@ const Community = ({ socket, userId }) => {
   
   return (
     <div className="community-container">
-      {/* ... existing code ... */}
+      
       <div className="projects-container">
         {loading ? <p>Loading...</p> : renderProjects()}
       </div>

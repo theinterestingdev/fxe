@@ -14,7 +14,7 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     let socketInstance = null;
 
-    // Create socket connection only when logged in
+    
     if (isLoggedIn && userId) {
       console.log('Initializing socket connection for user:', userId);
       
@@ -23,7 +23,7 @@ export const SocketProvider = ({ children }) => {
         socketInstance.disconnect();
       }
       
-      // Connect to the socket server
+      
       socketInstance = io('http://localhost:5000', {
         auth: { token: localStorage.getItem('token') },
         query: { userId },
@@ -59,7 +59,7 @@ export const SocketProvider = ({ children }) => {
         console.log('Socket disconnected, reason:', reason);
         setIsConnected(false);
         
-        // If the server closed the connection, we should reconnect automatically
+        
         if (reason === 'io server disconnect') {
           setTimeout(() => {
             if (socketInstance) {

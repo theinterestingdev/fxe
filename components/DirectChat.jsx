@@ -7,7 +7,7 @@ const DirectChat = ({ socket, userId, recipientId, recipientName, isOnline }) =>
   const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
 
-  // Fetch message history when component mounts
+  
   useEffect(() => {
     if (!socket) {
       console.error('DirectChat: No socket connection available');
@@ -22,7 +22,7 @@ const DirectChat = ({ socket, userId, recipientId, recipientName, isOnline }) =>
     setLoading(true);
     setError(null);
     
-    // Emit event to get message history
+    
     console.log('DirectChat: Requesting message history...');
     socket.emit('get_direct_messages', { 
       senderId: userId, 

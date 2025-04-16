@@ -34,13 +34,13 @@ const ProfileView = () => {
     fetchProfile();
   }, []);
 
-  // Handle form submission
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const updatedProfile = { skills, expertiseLevel, portfolio, bio, verified: false }; // Set verified to false after update
       await createOrUpdateProfile(updatedProfile);
-      setVerified(false); // Mark profile as unverified after update
+      setVerified(false);
       setEditing(false);
       alert('Profile updated successfully! It will be reviewed by the admin.');
     } catch (error) {

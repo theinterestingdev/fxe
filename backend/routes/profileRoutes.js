@@ -3,18 +3,18 @@ const {
   createOrUpdateProfile,
   getProfile,
   checkProfileExists,
-} = require('../controllers/profileController'); // Import profile controller functions
-const authMiddleware = require('../middleware/authMiddleware'); // Middleware to verify JWT
-const Profile = require('../models/profileSchema'); // Import Profile model
+} = require('../controllers/profileController');
+const authMiddleware = require('../middleware/authMiddleware'); 
+const Profile = require('../models/profileSchema'); 
 
 const router = express.Router();
 
-// Profile Routes
-router.post('/', authMiddleware, createOrUpdateProfile); // Create or update profile
-router.get('/', authMiddleware, getProfile); // Get profile
-router.get('/check', authMiddleware, checkProfileExists); // Check if profile exists
 
-// Add a new route to get all profiles
+router.post('/', authMiddleware, createOrUpdateProfile); 
+router.get('/', authMiddleware, getProfile); 
+router.get('/check', authMiddleware, checkProfileExists);
+
+
 router.get('/all', async (req, res) => {
   try {
     const profiles = await Profile.find({}, '-__v')
@@ -29,7 +29,7 @@ router.get('/all', async (req, res) => {
   }
 });
 
-// Add a route to fix specific usernames
+
 router.post('/fix-username/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -41,31 +41,31 @@ router.post('/fix-username/:userId', async (req, res) => {
     
     console.log(`Attempting to fix username for user ${userId} to ${username}`);
     
-    // Try different ways to find the user
+    
     const mongoose = require('mongoose');
     let profile;
     
-    // Try with string userId
+    
     profile = await Profile.findOne({ userId: userId });
     
-    // Try with ObjectId if valid format
+    
     if (!profile && mongoose.Types.ObjectId.isValid(userId)) {
       profile = await Profile.findOne({ userId: mongoose.Types.ObjectId(userId) });
     }
     
-    // Try with _id
+    
     if (!profile && mongoose.Types.ObjectId.isValid(userId)) {
       profile = await Profile.findOne({ _id: mongoose.Types.ObjectId(userId) });
     }
     
     if (profile) {
-      // Update the profile
+      
       profile.username = username;
       if (email) profile.email = email;
       await profile.save();
       res.status(200).json({ message: 'Username updated successfully', profile });
     } else {
-      // Create new profile
+      
       const newProfile = new Profile({
         userId,
         username,

@@ -4,21 +4,21 @@ import { motion, useAnimation } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import { useNavigate } from 'react-router-dom';
 
-// Lazy load the expensive 3D components
+
 const ParticlesCanvas = lazy(() => import('./ParticlesCanvas'));
 
 const LandingPage = memo(() => {
-  // Always initialize all hooks at the top level
+  
   const { userEmail, isLoggedIn, backendError } = useAuth();
   const navigate = useNavigate();
   const controls = useAnimation();
   const [ref, inView] = useInView({ threshold: 0.1, triggerOnce: true });
   
-  // Safe username extraction with fallback
+  
   const username = userEmail ? userEmail.split("@")[0] : "User";
 
   useEffect(() => {
-    // Only animate if the component is in view
+    
     if (inView) {
       controls.start("visible").catch(error => {
         console.error("Animation error:", error);
@@ -26,7 +26,7 @@ const LandingPage = memo(() => {
     }
   }, [controls, inView]);
 
-  // Simplified animation variants with reduced properties
+  
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -61,7 +61,7 @@ const LandingPage = memo(() => {
         </Suspense>
       </div>
 
-      {/* Content */}
+      
       <div className="relative z-10 h-full flex flex-col justify-center items-center text-center px-4">
         <motion.div variants={itemVariants}>
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-600 mb-6">

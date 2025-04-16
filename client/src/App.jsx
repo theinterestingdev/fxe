@@ -6,7 +6,7 @@ import LoadingScreen from './components/LoadingScreen';
 import { useAuth } from './components/AuthContext';
 import './App.css';
 
-// Lazy load with suspense for better performance
+
 const LandingPage = React.lazy(() => import('./components/LandingPage'));
 const Slider = React.lazy(() => import('./components/Slider'));
 const SignIn = React.lazy(() => import('./components/SignIn'));

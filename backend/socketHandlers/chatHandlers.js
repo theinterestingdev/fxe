@@ -2,13 +2,13 @@ const chatService = require('../services/chatService');
 const notificationService = require('../services/notificationService');
 const projectService = require('../services/projectService');
 
-// Add rate limiting to prevent loops
+
 const rateLimits = {
   requestCounts: {},
   lastReset: Date.now(),
 };
 
-// Reset rate limits every minute
+
 setInterval(() => {
   rateLimits.requestCounts = {};
   rateLimits.lastReset = Date.now();
@@ -45,12 +45,12 @@ function isRateLimited(userId, eventName, limit = 20) {
  * @param {Object} users - Connected users map
  */
 function setupChatHandlers(io, socket, users) {
-  // Track multiple registration attempts
+  
   let hasRegistered = false;
   
-  // Register user with their ID
+  
   socket.on('registerUser', async (data) => {
-    // Handle both formats - object with details or just userId string
+    
     const userId = typeof data === 'object' ? data.userId : data;
     const userDetails = typeof data === 'object' ? data : null;
     
@@ -59,7 +59,7 @@ function setupChatHandlers(io, socket, users) {
       return;
     }
 
-    // Prevent multiple registrations from same socket
+    
     if (hasRegistered) {
       console.log(`User ${userId} already registered on socket ${socket.id}`);
       return;
@@ -68,18 +68,18 @@ function setupChatHandlers(io, socket, users) {
     hasRegistered = true;
     console.log(`User ${userId} registering with socket ID ${socket.id}`);
 
-    // If we have user details, store them for later use in messages and other events
+    
     if (userDetails) {
-      // Store user details in memory for use in messages
+      
       try {
-        // Also update user details in the database
+        
         const Profile = require('../models/profileSchema');
         const mongoose = require('mongoose');
         
-        // Handle string vs ObjectId for userId
+        
         let userIdQuery;
         try {
-          // Try to convert to ObjectId if it's a valid format
+          
           if (mongoose.Types.ObjectId.isValid(userId)) {
             userIdQuery = { $or: [
               { userId: mongoose.Types.ObjectId(userId) },
@@ -89,17 +89,17 @@ function setupChatHandlers(io, socket, users) {
             userIdQuery = { userId: userId };
           }
         } catch (err) {
-          // If conversion fails, use as is
+          
           userIdQuery = { userId: userId };
         }
         
         console.log(`Updating profile for user ${userId} with username ${userDetails.username}`);
         
-        // First try to find the user to see if they exist
+        
         const existingProfile = await Profile.findOne(userIdQuery);
         
         if (existingProfile) {
-          // Update existing profile
+          
           await Profile.updateOne(
             { _id: existingProfile._id },
             { 
@@ -112,7 +112,7 @@ function setupChatHandlers(io, socket, users) {
           );
           console.log(`Updated existing profile for ${userDetails.username}`);
         } else {
-          // Create new profile
+          
           const newProfile = new Profile({
             userId: userId,
             username: userDetails.username,
@@ -128,12 +128,12 @@ function setupChatHandlers(io, socket, users) {
       }
     }
 
-    // Check if user is already connected with different socket
+    
     const existingSocketId = users[userId];
     if (existingSocketId && existingSocketId !== socket.id) {
       console.log(`User ${userId} already connected with socket ${existingSocketId}, updating to ${socket.id}`);
       
-      // Notify the old socket that a new connection has taken over
+      
       try {
         io.to(existingSocketId).emit('connectionReplaced', { 
           message: 'Your session has been opened elsewhere.' 
@@ -143,18 +143,18 @@ function setupChatHandlers(io, socket, users) {
       }
     }
     
-    // Map user ID to socket ID
+    
     users[userId] = socket.id;
     console.log(`User ${userId} connected with socket ID ${socket.id}`);
     console.log(`Active users: ${Object.keys(users).join(', ')}`);
 
-    // Notify other users that this user is online
+    
     socket.broadcast.emit('userStatusUpdate', { userId, isOnline: true });
     
-    // Send user's existing unread notifications
+    
     sendUnreadNotifications(userId, socket);
     
-    // Send current online users to the newly connected user
+    
     const onlineUsers = {};
     for (const [uid, sid] of Object.entries(users)) {
       onlineUsers[uid] = true;
@@ -162,7 +162,7 @@ function setupChatHandlers(io, socket, users) {
     socket.emit('initialOnlineUsers', onlineUsers);
   });
 
-  // Helper function to send unread notifications to user
+  
   async function sendUnreadNotifications(userId, socket) {
     try {
       const unreadNotifications = await notificationService.getUnreadNotifications(userId);
@@ -175,39 +175,39 @@ function setupChatHandlers(io, socket, users) {
     }
   }
 
-  // Handle notifications
+  
   socket.on('sendNotification', async (notification) => {
     if (!notification || !notification.recipientId || !notification.senderId) {
       console.error('Invalid notification format');
       return;
     }
     
-    // Apply rate limiting for notifications
+    
     if (isRateLimited(notification.senderId, 'sendNotification', 10)) {
       console.warn(`Rate limited notification from ${notification.senderId}`);
       return;
     }
 
     try {
-      // Prevent sending notifications to yourself
+      
       if (notification.senderId === notification.recipientId) {
         console.log('Skipping self-notification');
         return;
       }
       
-      // Add unique ID to notification
+      
       notification.id = `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       notification.read = false;
       
       console.log(`Sending notification to user ${notification.recipientId}:`, notification.type);
       
-      // Save notification to database
+      
       const savedNotification = await notificationService.saveNotification(notification);
       
-      // Find recipient's socket ID
-      const recipientSocketId = users[notification.recipientId];
       
-      // Send notification only to the intended recipient
+      const recipientSocketId = users[notification.recipientId];
+
+      
       if (recipientSocketId) {
         io.to(recipientSocketId).emit('notification', savedNotification);
       } else {
@@ -218,10 +218,10 @@ function setupChatHandlers(io, socket, users) {
     }
   });
 
-  // Handle request for chat history
+  
   socket.on('getChatHistory', async (data) => {
     try {
-      // Check if data is a string (userId) or an object with userId
+      
       let userId;
       let partnerId;
       
@@ -244,7 +244,7 @@ function setupChatHandlers(io, socket, users) {
         return;
       }
       
-      // Apply rate limiting
+      
       if (isRateLimited(userId, 'getChatHistory', 5)) {
         console.warn(`Rate limited chat history request from ${userId}`);
         socket.emit('chatHistory', { 
@@ -257,10 +257,10 @@ function setupChatHandlers(io, socket, users) {
       
       let history;
       if (partnerId) {
-        // Get history for specific conversation
+        
         history = await chatService.getChatHistoryForConversation(userId, partnerId);
       } else {
-        // Get all chat history
+        
         history = await chatService.getChatHistoryForUser(userId);
       }
       
@@ -272,7 +272,7 @@ function setupChatHandlers(io, socket, users) {
     }
   });
 
-  // Handle private messages
+  
   socket.on('sendPrivateMessage', async (message, callback) => {
     try {
       if (!message || !message.sender || !message.receiver || !message.text) {
@@ -282,7 +282,7 @@ function setupChatHandlers(io, socket, users) {
         return;
       }
       
-      // Apply rate limiting for private messages
+    
       if (isRateLimited(message.sender, 'sendPrivateMessage', 15)) {
         console.warn(`Rate limited messages from ${message.sender}`);
         if (callback) callback({ 
@@ -295,30 +295,30 @@ function setupChatHandlers(io, socket, users) {
 
       console.log(`Processing private message from ${message.sender} to ${message.receiver}`);
       
-      // Add timestamp if not provided
+      
       if (!message.timestamp) {
         message.timestamp = new Date().toISOString();
       }
       
-      // Ensure message has an ID if not provided
+      
       if (!message.id) {
         message.id = `msg-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       }
       
       try {
-        // Save message to database
+        
         const savedMessage = await chatService.saveMessage(message);
         console.log(`Message saved to database with ID: ${savedMessage.id}`);
 
-        // Find the recipient's socket ID
+        
         const receiverSocketId = users[message.receiver];
 
         if (receiverSocketId) {
           console.log(`Sending message to online user ${message.receiver} (socket: ${receiverSocketId})`);
-          // Send the message to the recipient only
+          
           io.to(receiverSocketId).emit('receivePrivateMessage', savedMessage);
           
-          // Create notification for new message but only send if we haven't recently
+          
           if (!isRateLimited(message.sender, `message-notif-${message.receiver}`, 2)) {
             const notification = {
               id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -331,22 +331,22 @@ function setupChatHandlers(io, socket, users) {
               read: false
             };
             
-            // Save and send notification
+            
             const savedNotification = await notificationService.saveNotification(notification);
             io.to(receiverSocketId).emit('notification', savedNotification);
           }
         } else {
           console.log(`User ${message.receiver} is offline, message will be delivered later`);
-          // Save notification for offline user to receive on next login
+          
         }
 
-        // Send the message back to the sender for UI update
+        
         socket.emit('receivePrivateMessage', {
           ...savedMessage.toObject(),
           confirmed: true
         });
         
-        // Send success callback if provided
+        
         if (callback) callback({ success: true, messageId: savedMessage.id });
       } catch (dbError) {
         console.error('Database error handling private message:', dbError);
@@ -358,14 +358,14 @@ function setupChatHandlers(io, socket, users) {
     }
   });
 
-  // Handle typing status
+  
   socket.on('typing_status', (data) => {
     if (!data || !data.senderId || !data.recipientId) {
       console.error('Invalid typing status data');
       return;
     }
     
-    // Apply rate limiting for typing status updates (more aggressive)
+    
     if (isRateLimited(data.senderId, 'typing_status', 30)) {
       console.warn(`Rate limited typing status from ${data.senderId}`);
       return;
@@ -373,16 +373,16 @@ function setupChatHandlers(io, socket, users) {
     
     console.log(`Typing status update: ${data.senderId} is ${data.isTyping ? 'typing' : 'not typing'} to ${data.recipientId}`);
     
-    // Find recipient's socket ID
+    
     const recipientSocketId = users[data.recipientId];
     
-    // Only send to recipient if they're online
+    
     if (recipientSocketId) {
       io.to(recipientSocketId).emit('typing_status', data);
     }
   });
 
-  // Handle message read receipts (update to support both formats)
+
   socket.on('markMessageRead', async ({ messageId }, callback) => {
     try {
       if (!messageId) {
@@ -391,14 +391,14 @@ function setupChatHandlers(io, socket, users) {
         return;
       }
 
-      // Update message in database
+      
       const message = await chatService.markMessageAsRead(messageId);
 
       if (message) {
-        // Notify sender that message was read - support both old and new format
+        
         const senderSocketId = users[message.sender] || users[message.senderId];
         if (senderSocketId) {
-          // Send both event types for compatibility
+          
           io.to(senderSocketId).emit('messageRead', {
             messageId: message.id || message._id,
             conversationId: message.receiver || message.recipientId,
@@ -414,7 +414,7 @@ function setupChatHandlers(io, socket, users) {
     }
   });
 
-  // Handle notification read receipts
+  
   socket.on('markNotificationRead', async ({ notificationId }, callback) => {
     try {
       if (!notificationId) {
@@ -423,7 +423,7 @@ function setupChatHandlers(io, socket, users) {
         return;
       }
 
-      // Update notification in database
+      
       await notificationService.markNotificationAsRead(notificationId);
       if (callback) callback({ success: true });
     } catch (error) {
@@ -432,11 +432,11 @@ function setupChatHandlers(io, socket, users) {
     }
   });
 
-  // Handle disconnection
+  
   socket.on('disconnect', () => {
     console.log('A user disconnected:', socket.id);
 
-    // Find the user ID associated with this socket
+
     let disconnectedUserId = null;
     for (const [userId, socketId] of Object.entries(users)) {
       if (socketId === socket.id) {
@@ -447,7 +447,7 @@ function setupChatHandlers(io, socket, users) {
       }
     }
 
-    // Notify other users about the status change
+    
     if (disconnectedUserId) {
       io.emit('userStatusUpdate', {
         userId: disconnectedUserId,
@@ -456,7 +456,7 @@ function setupChatHandlers(io, socket, users) {
     }
   });
 
-  // Handle post likes
+  
   socket.on('likePost', async (data) => {
     if (!data || !data.postId || !data.userId) {
       console.error('Invalid like format');
@@ -464,11 +464,11 @@ function setupChatHandlers(io, socket, users) {
     }
 
     try {
-      // Update like count in database
+  
       const result = await projectService.likeProject(data.postId, data.userId);
       
       if (result.success) {
-        // Broadcast like update to all connected users
+        
         io.emit('postLiked', {
           postId: data.postId,
           likesCount: result.likesCount,
@@ -480,7 +480,7 @@ function setupChatHandlers(io, socket, users) {
     }
   });
 
-  // Handle comments
+  
   socket.on('addComment', async (data) => {
     if (!data || !data.postId || !data.comment) {
       console.error('Invalid comment format');
@@ -488,11 +488,11 @@ function setupChatHandlers(io, socket, users) {
     }
 
     try {
-      // Save comment to database
+      
       const result = await projectService.addComment(data.postId, data.comment);
       
       if (result.success) {
-        // Broadcast comment to all connected users
+        
         io.emit('newComment', {
           postId: data.postId,
           comment: data.comment
@@ -503,31 +503,31 @@ function setupChatHandlers(io, socket, users) {
     }
   });
   
-  // Handle ping from client
+  
   socket.on('ping', () => {
     socket.emit('pong');
   });
   
-  // Handle getUsersList request
+  
   socket.on('getUsersList', async () => {
     try {
       console.log('Fetching users list for socket request');
       
-      // Get user profiles from the database
+      
       const userProfiles = await require('../services/profileService').getAllProfiles();
       
-      // Format users with consistent field names - prioritize username field
+      
       const formattedUsers = userProfiles.map(profile => {
-        // Ensure profile has all expected fields
+        
         if (!profile) return null;
         
-        // Extract userId - handle both string and ObjectId formats
+        
         const profileId = profile._id?.toString() || profile.userId?.toString();
         if (!profileId) return null;
         
         console.log(`Processing profile: ${profileId}, username: ${profile.username || 'none'}, email: ${profile.email || 'none'}`);
         
-        // Create a consistent username, strongly preferring stored username
+        
         const username = profile.username || 
                          profile.name || 
                          (profile.email ? profile.email.split('@')[0] : null) ||
@@ -536,13 +536,13 @@ function setupChatHandlers(io, socket, users) {
         return {
           _id: profileId,
           userId: profileId,
-          username: username,  // Prioritize stored username
+          username: username,  
           name: profile.name || username,
           email: profile.email || '',
           avatar: profile.avatar || profile.profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
           profileImage: profile.avatar || profile.profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
         };
-      }).filter(user => user !== null); // Remove any null entries
+      }).filter(user => user !== null); 
       
       console.log(`Sending ${formattedUsers.length} user profiles to client`);
       socket.emit('usersList', formattedUsers);
@@ -552,7 +552,7 @@ function setupChatHandlers(io, socket, users) {
     }
   });
   
-  // Handle direct message requests
+  
   socket.on('get_direct_messages', async (data, callback) => {
     try {
       if (!data || !data.senderId || !data.recipientId) {
@@ -563,10 +563,10 @@ function setupChatHandlers(io, socket, users) {
       
       console.log(`Getting direct messages between ${data.senderId} and ${data.recipientId}`);
       
-      // Get messages between these two users using existing service
+      
       const history = await chatService.getChatHistoryForConversation(data.senderId, data.recipientId);
       
-      // Format messages array for DirectChat component
+      
       const formattedMessages = history.conversations.length > 0 
         ? history.conversations[0].messages.map(msg => ({
             id: msg.id,
@@ -585,7 +585,7 @@ function setupChatHandlers(io, socket, users) {
     }
   });
   
-  // Handle sending direct messages
+  
   socket.on('send_direct_message', async (message, callback) => {
     try {
       if (!message || !message.senderId || !message.recipientId || !message.content) {
@@ -595,7 +595,7 @@ function setupChatHandlers(io, socket, users) {
         return;
       }
       
-      // Apply rate limiting
+      
       if (isRateLimited(message.senderId, 'send_direct_message', 15)) {
         console.warn(`Rate limited direct messages from ${message.senderId}`);
         if (callback) callback({ 
@@ -608,7 +608,7 @@ function setupChatHandlers(io, socket, users) {
       
       console.log(`Processing direct message from ${message.senderId} to ${message.recipientId}`);
       
-      // Convert to internal message format
+      
       const internalMessage = {
         id: message.id || `msg-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         sender: message.senderId,
@@ -617,12 +617,12 @@ function setupChatHandlers(io, socket, users) {
         timestamp: message.timestamp || new Date().toISOString(),
       };
       
-      // Save message using existing service
+      
       const savedMessage = await chatService.saveMessage(internalMessage);
       console.log(`Direct message saved with ID: ${savedMessage.id}`);
       
-      // Format for DirectChat component
-      const formattedMessage = {
+      
+       const formattedMessage = {
         id: savedMessage.id,
         senderId: savedMessage.sender,
         recipientId: savedMessage.receiver,
@@ -630,16 +630,16 @@ function setupChatHandlers(io, socket, users) {
         timestamp: savedMessage.timestamp
       };
       
-      // Send to recipient if online
+      
       const recipientSocketId = users[message.recipientId];
       if (recipientSocketId) {
         io.to(recipientSocketId).emit('direct_message', formattedMessage);
       }
       
-      // Send back to sender for confirmation
+      
       socket.emit('direct_message', formattedMessage);
       
-      // Success callback
+      
       if (callback) callback({ success: true, messageId: savedMessage.id });
     } catch (error) {
       console.error('Error handling direct message:', error);

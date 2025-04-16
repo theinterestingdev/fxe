@@ -14,12 +14,12 @@ const Navbar = () => {
   const { isLoggedIn, userEmail, logout } = useAuth();
   const navLinks = ["Services", "Our Work", "About Us", "Insights"];
   
-  // Check if current page is signin or signup
+  
   const isAuthPage = location.pathname === "/signin" || location.pathname === "/signup";
 
-  // Add scroll listener to make navbar background solid on scroll
+  
   useEffect(() => {
-    if (isAuthPage) return; // Skip effect on auth pages
+    if (isAuthPage) return; 
     
     const handleScroll = () => {
       if (window.scrollY > 10) {
@@ -34,7 +34,7 @@ const Navbar = () => {
   }, [isAuthPage]);
 
   useEffect(() => {
-    if (isAuthPage) return; // Skip effect on auth pages
+    if (isAuthPage) return; 
     
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -46,7 +46,7 @@ const Navbar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isAuthPage]);
 
-  // Hide navbar completely on auth pages
+  
   if (isAuthPage) {
     return null;
   }

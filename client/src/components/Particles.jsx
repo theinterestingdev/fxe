@@ -2,11 +2,11 @@ import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 
-// This component is heavily optimized for performance
-const Particles = ({ count = 150 }) => { // Reduced default count
+
+const Particles = ({ count = 150 }) => {
   const pointsRef = useRef();
   
-  // Create particles only once
+  
   const particles = useMemo(() => {
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
@@ -19,7 +19,7 @@ const Particles = ({ count = 150 }) => { // Reduced default count
       positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
       positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
       
-      // Add color variation
+    
       const colorIndex = Math.floor(Math.random() * 3);
       if (colorIndex === 0) color.set('#3b82f6'); // Blue
       else if (colorIndex === 1) color.set('#0ea5e9'); // Cyan
