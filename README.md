@@ -128,10 +128,8 @@ server.js - Main server entry point
 4. Upload your own projects to showcase
 5. Interact with other users through the community chat
 
-## Contributors
 
-- [Add contributor names here]
 
 ## License
 
-[Choose and add an appropriate license]
+-----
