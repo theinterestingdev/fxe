@@ -1,132 +1,243 @@
-import React, { useRef, useLayoutEffect } from "react";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-gsap.registerPlugin(ScrollTrigger);
+import React, { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const slides = [
-  { title: "Step 1", note: "Signup", color: "text-red-600", img: "/test.jpg" },
   {
-    title: "Step 2",
-    note: "Skills and Experience",
-    color: "text-[#e9ab32]",
-    img: "/experience.jpg",
+    id: 1,
+    title: "Elevate Your Creativity",
+    note: "Join our exclusive community of innovators and creators",
+    color: "from-purple-600 via-indigo-700 to-blue-800",
+    img: "/1.webp",
+    buttonText: "Join Now",
   },
   {
-    title: "Step 3",
-    note: "Looking For ?",
-    color: "text-[#598fe1]",
-    img: "/looking.jpg",
+    id: 2,
+    title: "Showcase Your Masterpieces",
+    note: "Present your best work to a global audience",
+    color: "from-amber-500 via-orange-600 to-red-700",
+    img: "/2.webp",
+    buttonText: "View Gallery",
+  },
+  {
+    id: 3,
+    title: "Connect & Collaborate",
+    note: "Find the perfect partners for your next project",
+    color: "from-emerald-500 via-teal-600 to-cyan-700",
+    img: "/3.webp",
+    buttonText: "Network Now",
   },
 ];
 
+// Preload images
+const preloadImages = () => {
+  slides.forEach(slide => {
+    const img = new Image();
+    img.src = slide.img;
+  });
+};
+
 const Slider = () => {
-  const container = useRef();
-  const panel = useRef([]);
-  const bulletsRef = useRef([]);
-  const sectionsRef = useRef([]);
+  const [index, setIndex] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const [isHovered, setIsHovered] = useState(false);
+  const [loadedImages, setLoadedImages] = useState({});
+  const timeoutRef = useRef(null);
 
-  useLayoutEffect(() => {
-    let ctx = gsap.context(() => {
-      // Animate panel background movement
-      panel.current.forEach((panel) => {
-        gsap.to(panel, {
-          backgroundPosition: "-100px",
-          duration: 3,
-          scrollTrigger: {
-            trigger: panel,
-            toggleActions: "play reverse play reverse",
-            start: "top 80%",
-            end: "bottom 20%",
-          },
-        });
-      });
+  // Preload images on component mount
+  useEffect(() => {
+    preloadImages();
+    
+    // Track loaded images
+    const handleImageLoad = (id) => {
+      setLoadedImages(prev => ({ ...prev, [id]: true }));
+    };
 
-      // Bullet Scaling Animation (Always Visible)
-      sectionsRef.current.forEach((section, index) => {
-        gsap.to(bulletsRef.current[index], {
-          scale: 1.5, // Adjusted for responsiveness
-          scrollTrigger: {
-            trigger: section,
-            start: "top center",
-            end: "bottom center",
-            toggleActions: "play reverse play reverse",
-          },
-        });
-      });
+    slides.forEach(slide => {
+      const img = new Image();
+      img.src = slide.img;
+      img.onload = () => handleImageLoad(slide.id);
+    });
 
-    }, container);
-
-    return () => ctx.revert();
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, []);
 
-  const addToRefs = (el, type) => {
-    if (el) {
-      if (type === "panel" && !panel.current.includes(el)) {
-        panel.current.push(el);
+  // Auto-advance slides
+  useEffect(() => {
+    if (isHovered) return;
+    
+    timeoutRef.current = setTimeout(() => {
+      setDirection(1);
+      setIndex((prev) => (prev + 1) % slides.length);
+    }, 6000);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
-      if (type === "section" && !sectionsRef.current.includes(el)) {
-        sectionsRef.current.push(el);
-      }
+    };
+  }, [index, isHovered]);
+
+  const nextSlide = () => {
+    setDirection(1);
+    setIndex((prev) => (prev + 1) % slides.length);
+    resetTimer();
+  };
+
+  const prevSlide = () => {
+    setDirection(-1);
+    setIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
+    resetTimer();
+  };
+
+  const goToSlide = (i) => {
+    setDirection(i > index ? 1 : -1);
+    setIndex(i);
+    resetTimer();
+  };
+
+  const resetTimer = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
     }
   };
 
-  const scrollToSection = (index) => {
-    sectionsRef.current[index]?.scrollIntoView({ behavior: "smooth" });
+  const slideVariants = {
+    enter: (direction) => ({
+      x: direction > 0 ? "100%" : "-100%",
+      opacity: 0,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+    },
+    exit: (direction) => ({
+      x: direction > 0 ? "-100%" : "100%",
+      opacity: 0,
+    }),
+  };
+
+  const textVariants = {
+    hidden: { opacity: 0, y: 50 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } },
   };
 
   return (
-    <div ref={container} className="overflow-hidden bg-[#f2f2f2]">
-      {/* Bullets - Always Visible & Responsive */}
-      <div
-        className="fixed left-4 top-1/2 transform -translate-y-1/2 
-                   flex flex-col gap-6 items-center z-50 
-                   md:left-8 lg:left-12 xl:left-16"
-      >
-        {slides.map((bullet, index) => (
-          <img
-            key={bullet.title}
-            ref={(el) => (bulletsRef.current[index] = el)}
-            src={bullet.img}
-            className="w-8 h-8 md:w-12 md:h-12 rounded-full object-cover 
-                       border-2 border-black transition-transform 
-                       duration-500 cursor-pointer"
-            alt={`Bullet ${bullet.title}`}
-            onClick={() => scrollToSection(index)}
+    <div
+      className={`relative w-full h-screen flex items-center justify-center overflow-hidden transition-all duration-1000 bg-gradient-to-br ${slides[index].color}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Enhanced glass overlay with gradient */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent z-0"></div>
+
+      <div className="z-10 flex flex-col md:flex-row items-center justify-center w-full max-w-7xl px-8 gap-12">
+        {/* Text Section */}
+        <motion.div 
+          className="text-center md:text-left w-full md:w-1/2 space-y-6"
+          initial="hidden"
+          animate="visible"
+          variants={textVariants}
+          key={`text-${slides[index].id}`}
+        >
+          <motion.h2
+            className="text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight tracking-tight drop-shadow-xl"
+          >
+            {slides[index].title}
+          </motion.h2>
+          <motion.p
+            className="text-xl md:text-2xl text-gray-100 font-light max-w-lg leading-relaxed"
+          >
+            {slides[index].note}
+          </motion.p>
+          <motion.div
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+          >
+            <button className="bg-white/90 hover:bg-white text-gray-900 px-8 py-4 rounded-full font-semibold text-lg shadow-xl hover:shadow-2xl transition-all duration-300">
+              {slides[index].buttonText}
+              <span className="ml-2">→</span>
+            </button>
+          </motion.div>
+        </motion.div>
+
+        {/* Image Section */}
+        <div className="w-full md:w-1/2 h-[350px] md:h-[450px] lg:h-[550px] relative rounded-2xl overflow-hidden shadow-2xl">
+          <AnimatePresence custom={direction} mode="wait">
+            <motion.div
+              key={slides[index].id}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                x: { type: "spring", stiffness: 300, damping: 30 },
+                opacity: { duration: 0.4 }
+              }}
+              className="absolute inset-0"
+            >
+              {!loadedImages[slides[index].id] ? (
+                <div className={`w-full h-full bg-gradient-to-br ${slides[index].color.split(' ')[0]} ${slides[index].color.split(' ')[2]}`} />
+              ) : (
+                <img
+                  src={slides[index].img}
+                  alt={slides[index].title}
+                  className="w-full h-full object-cover object-center"
+                  loading="lazy"
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* Navigation Dots */}
+      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex gap-3 z-20">
+        {slides.map((slide, i) => (
+          <button
+            key={slide.id}
+            onClick={() => goToSlide(i)}
+            className={`w-3 h-3 rounded-full transition-all duration-300 ${i === index ? 'bg-white w-6' : 'bg-white/50 hover:bg-white/70'}`}
+            aria-label={`Go to slide ${i + 1}`}
           />
         ))}
       </div>
 
-      {/* Slides */}
-      {slides.map((slide, index) => (
-        <section
-          key={slide.title}
-          ref={(el) => addToRefs(el, "section")}
-          className="h-screen flex flex-col md:flex-row items-center justify-center 
-                     px-6 md:px-12 lg:px-24 xl:px-32 snap-start"
+      {/* Enhanced Nav Buttons */}
+      <button
+        onClick={prevSlide}
+        className="absolute left-6 md:left-12 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 backdrop-blur-md p-4 rounded-full z-20 shadow-lg transition-all duration-300 group"
+        aria-label="Previous slide"
+      >
+        <svg
+          className="w-6 h-6 text-white group-hover:scale-110 transition-transform"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
         >
-          {/* Left Section - Text */}
-          <div className="w-full md:w-1/3 flex flex-col items-center justify-center text-center">
-            <h2 className={`${slide.color} text-lg md:text-2xl font-bold`}>
-              {slide.title}
-            </h2>
-            <h1 className="text-xl md:text-3xl text-black">{slide.note}</h1>
-          </div>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
 
-          {/* Right Section - Image */}
-          <div className="w-full md:w-2/3">
-            <div
-              ref={(el) => addToRefs(el, "panel")}
-              className="w-full h-[50vh] md:h-[75vh] rounded-xl shadow-lg"
-              style={{
-                backgroundImage: `url(${slide.img})`,
-                backgroundPosition: "center",
-                backgroundSize: "cover",
-              }}
-            />
-          </div>
-        </section>
-      ))}
+      <button
+        onClick={nextSlide}
+        className="absolute right-6 md:right-12 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 backdrop-blur-md p-4 rounded-full z-20 shadow-lg transition-all duration-300 group"
+        aria-label="Next slide"
+      >
+        <svg
+          className="w-6 h-6 text-white group-hover:scale-110 transition-transform"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
     </div>
   );
 };

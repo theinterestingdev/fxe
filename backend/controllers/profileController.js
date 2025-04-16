@@ -1,19 +1,13 @@
-const Profile = require('../models/profileSchema ');
+const Profile = require('../models/profileSchema');
 const User = require('../models/User');
 
 // Create or update profile
+// controllers/profileController.js
 const createOrUpdateProfile = async (req, res) => {
   const { skills, expertiseLevel, portfolio, bio } = req.body;
-  const userId = req.user.userId; // Extracted from JWT
+  const userId = req.user.userId; 
 
   try {
-    // Check if the user exists
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Check if a profile already exists
     let profile = await Profile.findOne({ userId });
 
     if (!profile) {
@@ -25,6 +19,7 @@ const createOrUpdateProfile = async (req, res) => {
       profile.expertiseLevel = expertiseLevel;
       profile.portfolio = portfolio;
       profile.bio = bio;
+      profile.verified = false; // Mark profile as unverified after update
     }
 
     await profile.save();
@@ -39,7 +34,7 @@ const getProfile = async (req, res) => {
   const userId = req.user.userId; // Extracted from JWT
 
   try {
-    const profile = await Profile.findOne({ userId }).populate('userId', 'email'); // Populate user details if needed
+    const profile = await Profile.findOne({ userId }).populate('userId', 'email');
     if (!profile) {
       return res.status(404).json({ message: 'Profile not found' });
     }
@@ -51,20 +46,37 @@ const getProfile = async (req, res) => {
 };
 
 // Check if profile exists
-// Check if profile exists
 const checkProfileExists = async (req, res) => {
-    const userId = req.user.userId; // Extracted from JWT
-  
-    try {
-      const profile = await Profile.findOne({ userId });
-      if (!profile) {
-        return res.status(200).json({ exists: false }); // ✅ Changed 'hasProfile' to 'exists'
-      }
-      res.status(200).json({ exists: true }); // ✅ Consistency with frontend
-    } catch (err) {
-      res.status(500).json({ message: 'Server error', error: err.message });
-    }
-  };
-  
+  const userId = req.user.userId; // Extracted from JWT
 
-module.exports = { createOrUpdateProfile, getProfile, checkProfileExists };
+  try {
+    const profile = await Profile.findOne({ userId });
+    if (!profile) {
+      return res.status(200).json({ exists: false });
+    }
+    res.status(200).json({ exists: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// Admin verify profile
+const verifyProfile = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const profile = await Profile.findOne({ userId });
+    if (!profile) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+
+    profile.verified = true;
+    await profile.save();
+
+    res.status(200).json({ message: 'Profile verified successfully', profile });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+module.exports = { createOrUpdateProfile, getProfile, checkProfileExists, verifyProfile };

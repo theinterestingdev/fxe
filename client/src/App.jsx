@@ -1,150 +1,58 @@
-import React, { useEffect, useRef, useState, lazy, Suspense } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import LocomotiveScroll from "locomotive-scroll";
-import Navbar from "./components/Navbar";
-import LandingPage from "./components/LandingPage";
-import Slider from "./components/Slider";
-import Loader from "./components/Loader";
-import { useAuth } from "./components/AuthContext"; // Import useAuth
-import "locomotive-scroll/dist/locomotive-scroll.css";
-import "./App.css";
+import React, { Suspense } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
+import Navbar from './components/Navbar';
+import LoadingScreen from './components/LoadingScreen';
+import { useAuth } from './components/AuthContext';
+import './App.css';
 
-// Lazy load components
-const SignIn = lazy(() => import("./components/SignIn"));
-const SignUp = lazy(() => import("./components/SignUp"));
-const Dashboard = lazy(() => import("./components/Dashboard"));
-const ProfileSetup = lazy(() => import("./components/ProfileSetup"));
+// Lazy load with suspense for better performance
+const LandingPage = React.lazy(() => import('./components/LandingPage'));
+const Slider = React.lazy(() => import('./components/Slider'));
+const SignIn = React.lazy(() => import('./components/SignIn'));
+const SignUp = React.lazy(() => import('./components/SignUp'));
+const Dashboard = React.lazy(() => import('./components/Dashboard'));
+const ProfileView = React.lazy(() => import('./components/ProfileView'));
+const AdminLogin = React.lazy(() => import('./components/AdminLogin'));
+const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
+const Projects = React.lazy(() => import('./components/Projects'));
+const Community = React.lazy(() => import('./components/Community'));
+const ProfileSetup = React.lazy(() => import('./components/ProfileSetup'));
 
-// Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
-  const { isLoggedIn } = useAuth(); // Use the useAuth hook to check authentication
+  const { isLoggedIn } = useAuth();
+  return isLoggedIn ? children : <Navigate to="/signin" />;
+};
 
-  // Redirect to signin if not logged in
-  if (!isLoggedIn) {
-    return <Navigate to="/signin" />;
-  }
-
-  return children; // Render the protected component
+const AdminProtectedRoute = ({ children }) => {
+  return localStorage.getItem('adminToken') ? children : <Navigate to="/admin/login" replace />;
 };
 
 const App = () => {
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const preloadAssets = async () => {
-      const images = ["./testing (2).webp"]; // Add all image paths here
-      await Promise.all(
-        images.map((src) => {
-          return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.src = src;
-            img.onload = resolve;
-            img.onerror = reject;
-          });
-        })
-      );
-
-      // Simulate a delay for demonstration (remove in production)
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      setIsLoading(false); // All assets are loaded
-    };
-
-    preloadAssets();
-  }, []);
-
-  const LocomotiveScrollWrapper = ({ children }) => {
-    const scrollRef = useRef(null);
-
-    useEffect(() => {
-      if (!isLoading) {
-        const scroll = new LocomotiveScroll({
-          el: scrollRef.current,
-          smooth: true,
-          lerp: 0.08,
-          multiplier: 1.2,
-        });
-
-        return () => {
-          if (scroll) scroll.destroy();
-        };
-      }
-    }, [isLoading]);
-
-    return (
-      <div ref={scrollRef} className="w-full h-screen bg-zinc-900 text-white">
-        {children}
-      </div>
-    );
-  };
-
   return (
     <Router>
-      {isLoading ? (
-        <Loader /> // Show loader while assets are loading
-      ) : (
-        <Routes>
-          {/* Home Route */}
-          <Route
-            path="/"
-            element={
-              <LocomotiveScrollWrapper>
-                <Navbar />
-                <LandingPage isLoading={isLoading} />
+      <Navbar />
+      <AnimatePresence mode="wait">
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes>
+            <Route path="/" element={
+              <>
+                <LandingPage />
                 <Slider />
-              </LocomotiveScrollWrapper>
-            }
-          />
-
-          {/* Auth Routes */}
-          <Route
-            path="/signin"
-            element={
-              <Suspense fallback={<Loader />}>
-                <LocomotiveScrollWrapper>
-                  <SignIn />
-                </LocomotiveScrollWrapper>
-              </Suspense>
-            }
-          />
-          <Route
-            path="/signup"
-            element={
-              <Suspense fallback={<Loader />}>
-                <LocomotiveScrollWrapper>
-                  <SignUp />
-                </LocomotiveScrollWrapper>
-              </Suspense>
-            }
-          />
-
-          {/* Dashboard Route */}
-          <Route
-            path="/dashboard"
-            element={
-              <Suspense fallback={<Loader />}>
-                <LocomotiveScrollWrapper>
-                  <Dashboard />
-                </LocomotiveScrollWrapper>
-              </Suspense>
-            }
-          />
-
-          {/* Profile Setup Route (Protected) */}
-          <Route
-            path="/profile-setup"
-            element={
-              <Suspense fallback={<Loader />}>
-                <ProtectedRoute>
-                  <LocomotiveScrollWrapper>
-                    <ProfileSetup />
-                  </LocomotiveScrollWrapper>
-                </ProtectedRoute>
-              </Suspense>
-            }
-          />
-        </Routes>
-      )}
+              </>
+            } />
+            <Route path="/signin" element={<SignIn />} />
+            <Route path="/signup" element={<SignUp />} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/profile-setup" element={<ProtectedRoute><ProfileSetup /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><ProfileView /></ProtectedRoute>} />
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin/dashboard" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
+            <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
+            <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
+          </Routes>
+        </Suspense>
+      </AnimatePresence>
     </Router>
   );
 };
