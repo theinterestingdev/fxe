@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { useSocket } from "./SocketContext";
+import { ChatProvider } from "./WebSocketContext";
+import ChatInterface from "./ChatInterface";
 import { checkProfileExists } from "../api/api";
 import { motion } from "framer-motion";
 import { 
@@ -9,7 +11,8 @@ import {
   Code, PenTool, FileText, TrendingUp, Settings, Award,
   Calendar, CheckCircle, Shield, ArrowLeft
 } from "lucide-react";
-import DirectChat from "./DirectChat";
+import ChatWindow from "./ChatWindow";
+import DirectChat from "../../../components/DirectChat";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -55,16 +58,16 @@ const Dashboard = () => {
     }
   ]);
 
-  
+  // Fetch user profiles for chat
   const fetchUserProfiles = useCallback(async () => {
     try {
       console.log('Dashboard: Fetching user profiles');
       
-      
+      // Try multiple endpoints if the first one fails
       let response;
       let data = [];
       
-      
+      // First attempt - try the dedicated profile endpoint
       try {
         response = await fetch('http://localhost:5000/api/profile/all', {
           credentials: 'include',
@@ -81,7 +84,7 @@ const Dashboard = () => {
         console.log('Dashboard: First profile fetch attempt failed:', error.message);
       }
       
-      
+      // If first attempt failed, try users endpoint
       if (data.length === 0) {
         try {
           response = await fetch('http://localhost:5000/api/users', {
@@ -100,18 +103,18 @@ const Dashboard = () => {
         }
       }
       
-      
+      // If we still have no data, fallback to socket
       if (data.length === 0 && socket && socket.connected) {
         console.log('Dashboard: Requesting user list from socket');
         socket.emit('getUsersList');
-        return;
+        return; // Socket will handle setting the users via the usersList event
       }
       
-      
+      // If we have data, process it
       if (data.length > 0) {
         console.log('Dashboard: Processing fetched user data:', data);
         
-        
+        // Filter out current user and transform to chat format
         const otherUsers = data
           .filter(profile => {
             const profileId = profile.userId || profile._id;
@@ -133,13 +136,13 @@ const Dashboard = () => {
         setUserProfiles(data);
         setChats(otherUsers);
         
-        
+        // Get chat history if we're connected
         if (socket && socket.connected) {
           socket.emit('getChatHistory', userId);
         }
       } else {
         console.warn('Dashboard: No user profiles found through API endpoints');
-        
+        // Request users list from socket as last resort
         if (socket && socket.connected) {
           socket.emit('getUsersList');
         }
@@ -148,26 +151,26 @@ const Dashboard = () => {
       console.error('Dashboard: Error in fetchUserProfiles:', error);
       setError('Failed to load contacts. Please try again later.');
       
-      
+      // Try socket as fallback
       if (socket && socket.connected) {
         socket.emit('getUsersList');
       }
     }
   }, [userId, socket]);
 
-  
+  // Setup socket events 
   useEffect(() => {
     if (!socket) return;
 
     console.log('Dashboard: Setting up socket event listeners');
     
-    
+    // Fetch profiles and chat history when socket connects
     if (socket.connected) {
       console.log('Dashboard: Socket already connected, fetching data');
       fetchUserProfiles();
     }
     
-    
+    // Setup connection handler
     const handleConnect = () => {
       console.log('Dashboard: Socket connected');
       socket.emit('registerUser', {
@@ -178,7 +181,7 @@ const Dashboard = () => {
       });
       fetchUserProfiles();
 
-      
+      // Ask for any pending notifications on connect
       socket.emit('getNotifications', userId);
     };
     
@@ -200,11 +203,11 @@ const Dashboard = () => {
     socket.on('userStatusUpdate', handleUserStatus);
     socket.on('initialOnlineUsers', handleInitialUsers);
 
-    
+    // Listen for notifications
     socket.on('notification', (notification) => {
       if (notification.recipientId === userId || notification.recipient === userId) {
         console.log('Dashboard: Received notification:', notification);
-        
+        // Format notification to ensure consistency
         const formattedNotification = {
           id: notification.id || notification._id || Date.now().toString(),
           from: notification.from || notification.senderName || 'System',
@@ -220,7 +223,7 @@ const Dashboard = () => {
           setUnreadNotifications(prev => prev + 1);
         }
         
-        
+        // Add to recent activities if it's a new notification
         if (!formattedNotification.read) {
           const newActivity = {
             id: `activity-${formattedNotification.id}`,
@@ -240,7 +243,7 @@ const Dashboard = () => {
       }
     });
 
-    
+    // Add handlers for notification lists
     socket.on('notifications', (notifications) => {
       if (notifications && Array.isArray(notifications)) {
         console.log('Dashboard: Received notifications list:', notifications);
@@ -260,17 +263,17 @@ const Dashboard = () => {
       }
     });
 
-    
+    // Listen for available users
     socket.on('usersList', (users) => {
       console.log('Dashboard: Received usersList from socket:', users);
       
-      
+      // Filter out current user and format for chat display
       const filteredUsers = users
         .filter(user => user._id !== userId)
         .map(user => ({
           id: user._id,
           name: user.username || user.name || (user.email ? user.email.split('@')[0] : `User-${user._id.substring(0, 5)}`),
-          username: user.username || '',
+          username: user.username || '', // Store the username separately
           avatar: user.profileImage || user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username || user._id}`,
           lastMessage: '',
           timestamp: new Date(),
@@ -279,32 +282,32 @@ const Dashboard = () => {
       
       console.log('Dashboard: Processed users from socket:', filteredUsers.length);
       
-      
+      // Only set chats if we don't already have them
       if (chats.length === 0) {
         setChats(filteredUsers);
       }
     });
 
-    
+    // Listen for chat history to update our chat list
     socket.on('chatHistory', (history) => {
       console.log('Dashboard: Received chat history:', history);
       
       if (!history || !history.conversations) return;
       
-      
+      // Update chats with real conversation data
       setChats(prevChats => {
         const updatedChats = [...prevChats];
         
-        
+        // For each conversation in history, update our chat list
         history.conversations.forEach(conversation => {
           const partnerId = conversation.partnerId;
           if (!partnerId) return;
           
-        
+          // Find the chat in our list
           const chatIndex = updatedChats.findIndex(c => c.id === partnerId);
           
           if (chatIndex >= 0) {
-            
+            // Chat exists, update with last message
             const messages = conversation.messages || [];
             if (messages.length > 0) {
               const lastMsg = messages[messages.length - 1];
@@ -312,7 +315,7 @@ const Dashboard = () => {
                 ...updatedChats[chatIndex],
                 lastMessage: lastMsg.text || '',
                 timestamp: new Date(lastMsg.timestamp),
-                
+                // Count unread messages (those where user is recipient and not read)
                 unread: messages.filter(m => 
                   m.receiver === userId && 
                   m.sender === partnerId && 
@@ -647,111 +650,25 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white overflow-x-hidden">
-      <div className="container mx-auto px-4 py-8">
-        {/* Messages Panel */}
-        <motion.div
-          className={`${selectedChat ? 'h-[600px]' : 'h-[400px]'} bg-gray-800/50 backdrop-blur-sm rounded-xl mb-8 shadow-lg overflow-hidden border border-gray-700/50`}
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="h-full flex flex-col">
-            <div className="bg-gray-800/80 p-4 border-b border-gray-700/50 flex justify-between items-center">
-              <h3 className="text-xl font-semibold text-blue-300 flex items-center">
-                <MessageCircle size={20} className="mr-2" />
-                Messages
-              </h3>
-              {selectedChat && (
-                <button
-                  onClick={() => setSelectedChat(null)}
-                  className="flex items-center text-gray-400 hover:text-white transition-colors"
-                >
-                  <ArrowLeft size={18} className="mr-1" />
-                  Back
-                </button>
-              )}
-            </div>
-            {!selectedChat ? (
-              // Chat list view
-              <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600">
-                {chats.length > 0 ? (
-                  chats.map(chat => (
-                    <div 
-                      key={chat.id} 
-                      className={`flex items-center p-3 border-b border-gray-700/30 hover:bg-gray-700/50 cursor-pointer transition-colors ${chat.unread > 0 ? 'bg-gray-700/30' : ''}`}
-                      onClick={() => setSelectedChat(chat.id)}
-                    >
-                      <div className="w-10 h-10 rounded-full overflow-hidden mr-3 shadow-md">
-                        <img 
-                          src={chat.avatar} 
-                          alt={chat.name} 
-                          className="w-full h-full object-cover" 
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=fallback";
-                          }}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between">
-                          <h4 className="font-medium text-blue-300 truncate">{chat.name}</h4>
-                          <span className="text-xs text-gray-400">{formatTime(chat.timestamp)}</span>
-                        </div>
-                        <p className="text-sm text-gray-300 truncate">
-                          {chat.lastMessage || 'Start a conversation'}
-                        </p>
-                      </div>
-                      {chat.unread > 0 && (
-                        <span className="ml-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center shadow-md">
-                          {chat.unread}
-                        </span>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-6 text-center text-gray-400">
-                    <MessageCircle size={24} className="mx-auto mb-2 text-gray-500" />
-                    <p>No conversations yet</p>
-                    <p className="text-sm mt-2">Start chatting with users from the Community page</p>
-                  </div>
-                )}
-                
-                {error && (
-                  <div className="p-4 text-center text-red-400 bg-red-500/10 border-t border-red-500/20">
-                    <p>{error}</p>
-                    <button 
-                      onClick={fetchUserProfiles}
-                      className="mt-2 text-sm text-red-300 hover:text-red-200"
-                    >
-                      Try Again
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              // Chat conversation view with DirectChat component
-              <div className="h-full flex flex-col">
-                <DirectChat 
-                  socket={socket}
-                  userId={userId}
-                  recipientId={selectedChat}
-                  recipientName={selectedChatDetails?.name || 'User'}
-                  recipientAvatar={selectedChatDetails?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedChatDetails?.name || selectedChat}`}
-                  isOnline={onlineUsers[selectedChat] || false}
-                />
-              </div>
-            )}
-          </div>
-        </motion.div>
+      {/* Add additional top padding to create more space between navbar and content */}
+      <div className="container mx-auto px-4 pt-24 pb-12">
+        {/* Dashboard Header */}
+        <div className="mb-10">
+          <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300">
+            Dashboard
+          </h1>
+          <p className="text-gray-400 mt-2">Welcome back, {username}! Here's an overview of your activities.</p>
+          <div className="h-1 w-24 bg-gradient-to-r from-blue-500 to-cyan-400 mt-3 rounded-full"></div>
+        </div>
 
         {/* Stats overview */}
         <motion.div
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8"
+          className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          <div className="bg-gradient-to-br from-blue-600/20 to-blue-500/10 backdrop-blur-sm rounded-xl p-5 border border-blue-500/30 shadow-lg">
+          <div className="bg-gradient-to-br from-blue-600/20 to-blue-500/10 backdrop-blur-sm rounded-xl p-6 border border-blue-500/30 shadow-xl hover:shadow-blue-900/20 hover:translate-y-[-2px] transition-all duration-300">
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-gray-400 text-sm">Active Projects</p>
@@ -767,7 +684,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-600/20 to-purple-500/10 backdrop-blur-sm rounded-xl p-5 border border-purple-500/30 shadow-lg">
+          <div className="bg-gradient-to-br from-purple-600/20 to-purple-500/10 backdrop-blur-sm rounded-xl p-6 border border-purple-500/30 shadow-xl hover:shadow-purple-900/20 hover:translate-y-[-2px] transition-all duration-300">
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-gray-400 text-sm">Total Earnings</p>
@@ -783,7 +700,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-green-600/20 to-green-500/10 backdrop-blur-sm rounded-xl p-5 border border-green-500/30 shadow-lg">
+          <div className="bg-gradient-to-br from-green-600/20 to-green-500/10 backdrop-blur-sm rounded-xl p-6 border border-green-500/30 shadow-xl hover:shadow-green-900/20 hover:translate-y-[-2px] transition-all duration-300">
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-gray-400 text-sm">Client Reviews</p>
@@ -800,12 +717,12 @@ const Dashboard = () => {
         </motion.div>
 
         {/* Main content grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left column - Quick actions and skills */}
           <div className="lg:col-span-4">
             {/* Quick Actions */}
             <motion.div
-              className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-gray-700/50 mb-6"
+              className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-xl border border-gray-700/50 mb-8 hover:shadow-blue-900/5 transition-shadow duration-300"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3, duration: 0.5 }}
@@ -899,7 +816,7 @@ const Dashboard = () => {
 
             {/* Skills Section */}
             <motion.div
-              className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-gray-700/50"
+              className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-xl border border-gray-700/50 hover:shadow-blue-900/5 transition-shadow duration-300"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4, duration: 0.5 }}
@@ -929,7 +846,7 @@ const Dashboard = () => {
           <div className="lg:col-span-8">
             {/* Recent Activity */}
             <motion.div
-              className="mb-6 bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-gray-700/50"
+              className="mb-8 bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-xl border border-gray-700/50 hover:shadow-blue-900/5 transition-shadow duration-300"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.5, duration: 0.5 }}
@@ -968,7 +885,7 @@ const Dashboard = () => {
 
             {/* Recommended Projects */}
             <motion.div
-              className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-gray-700/50"
+              className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-xl border border-gray-700/50 hover:shadow-blue-900/5 transition-shadow duration-300"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.6, duration: 0.5 }}
@@ -1088,73 +1005,30 @@ const Dashboard = () => {
         </div>
       )}
       
-      {/* Updated Messages Panel - floating panel for direct messages */}
-      {showMessages && !selectedChat && (
+
+
+      {/* Show ChatWindow when a chat is selected */}
+      {showMessages && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-xl w-full max-w-md max-h-[80vh] flex flex-col shadow-2xl border border-gray-700">
-            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-              <h3 className="text-xl font-semibold text-blue-300 flex items-center">
-                <MessageCircle size={20} className="mr-2" />
-                Messages
-              </h3>
+          <div className="bg-gray-800 rounded-xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl border border-gray-700">
+            <div className="p-3 border-b border-gray-700 flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Messages</h3>
               <button 
                 onClick={() => setShowMessages(false)}
-                className="p-1 hover:bg-gray-700 rounded-full transition-colors"
+                className="p-1 text-gray-400 hover:text-white rounded-full hover:bg-gray-700"
               >
-                <X size={18} />
+                &times;
               </button>
             </div>
-            
-            <div className="overflow-y-auto flex-1">
-              {chats.length > 0 ? (
-                chats.map(chat => (
-                  <div 
-                    key={chat.id} 
-                    className={`flex items-center p-3 border-b border-gray-700/30 hover:bg-gray-700/50 cursor-pointer transition-colors ${chat.unread > 0 ? 'bg-gray-700/30' : ''}`}
-                    onClick={() => {
-                      setSelectedChat(chat.id);
-                      setShowMessages(true);
-                    }}
-                  >
-                    <div className="w-10 h-10 rounded-full overflow-hidden mr-3 shadow-md">
-                      <img 
-                        src={chat.avatar} 
-                        alt={chat.name} 
-                        className="w-full h-full object-cover" 
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=fallback";
-                        }}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between">
-                        <h4 className="font-medium text-blue-300 truncate">{chat.name}</h4>
-                        <span className="text-xs text-gray-400">{formatTime(chat.timestamp)}</span>
-                      </div>
-                      <p className="text-sm text-gray-300 truncate">
-                        {chat.lastMessage || 'Start a conversation'}
-                      </p>
-                    </div>
-                    {chat.unread > 0 && (
-                      <span className="ml-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center shadow-md">
-                        {chat.unread}
-                      </span>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="p-6 text-center text-gray-400">
-                  <MessageCircle size={24} className="mx-auto mb-2 text-gray-500" />
-                  <p>No conversations yet</p>
-                  <p className="text-sm mt-2">Start chatting with users from the Community page</p>
-                </div>
-              )}
+            <div className="flex-1 overflow-hidden">
+              <ChatProvider>
+                <ChatInterface />
+              </ChatProvider>
             </div>
           </div>
         </div>
       )}
-      
+
       {/* Footer */}
       <motion.div
         className="text-center text-gray-400 mt-10"

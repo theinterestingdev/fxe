@@ -36,7 +36,7 @@ async function getChatHistoryForUser(userId) {
       });
     });
 
-    
+    // Format for frontend
     return {
       conversations: Object.keys(conversations).map(partnerId => ({
         partnerId,
@@ -59,7 +59,7 @@ async function getChatHistoryForConversation(userId, partnerId) {
   try {
     console.log(`Getting conversation history between users: ${userId} and ${partnerId}`);
     
-    
+    // Find all messages between these two users
     const messages = await Message.find({
       $or: [
         { sender: userId, receiver: partnerId },
@@ -69,7 +69,7 @@ async function getChatHistoryForConversation(userId, partnerId) {
 
     console.log(`Found ${messages.length} messages in conversation`);
     
-    
+    // Format messages
     const formattedMessages = messages.map(message => ({
       id: message.id,
       sender: message.sender,
@@ -81,7 +81,7 @@ async function getChatHistoryForConversation(userId, partnerId) {
       read: message.read
     }));
 
-    
+    // Return in the same format as getChatHistoryForUser for consistency
     return {
       conversations: [
         {
@@ -128,7 +128,7 @@ async function saveMessage(message) {
  */
 const markMessageAsRead = async (messageId) => {
   try {
-  
+    // Try to find message by ID
     const message = await Message.findOneAndUpdate(
       { $or: [
         { id: messageId },

@@ -1,76 +1,103 @@
 import { useRef, useEffect, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
+import { ChatProvider } from '../client/src/components/WebSocketContext';
+import DirectChat from './DirectChat';
+import { useSocket } from '../client/src/components/SocketContext';
 
-const Community = ({ socket, userId }) => {
+const Community = ({ userId }) => {
+  const { socket } = useSocket();
   const [chatUser, setChatUser] = useState(null);
-  const [onlineUsers, setOnlineUsers] = useState([]);
   const [isDirectChatOpen, setIsDirectChatOpen] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  // Keep chat state in memory so overlay doesn't unmount DirectChat
+  const [directChatState, setDirectChatState] = useState({});
   
-  
+  // Derive username from userId for the chat
+  const username = userId ? `User-${userId.toString().substr(0, 5)}` : 'Guest';
+
+  // Create a map to store video element refs
   const videoRefs = useRef({});
-  
-  
+
+  // Handle online users updates from socket
   useEffect(() => {
     if (!socket) return;
     
-    socket.on('online_users', (users) => {
-      console.log('Received online users:', users);
-      setOnlineUsers(users);
-    });
+    // Listen for online users
+    const handleOnlineUsers = (users) => {
+      console.log('Community: Received online users:', users);
+      setOnlineUsers(users || []);
+    };
+    
+    socket.on('online_users', handleOnlineUsers);
+    
+    // Listen for single user status update
+    const handleUserStatusUpdate = ({ userId, isOnline }) => {
+      console.log('Community: User status update:', userId, isOnline);
+      setOnlineUsers(prev => {
+        if (isOnline && !prev.includes(userId)) {
+          return [...prev, userId];
+        } else if (!isOnline && prev.includes(userId)) {
+          return prev.filter(id => id !== userId);
+        }
+        return prev;
+      });
+    };
+    
+    socket.on('userStatusUpdate', handleUserStatusUpdate);
     
     return () => {
-      socket.off('online_users');
+      socket.off('online_users', handleOnlineUsers);
+      socket.off('userStatusUpdate', handleUserStatusUpdate);
     };
   }, [socket]);
 
-  
+  // Handle video autoplay
   const handleVideoInView = (id, inView) => {
     const videoElement = videoRefs.current[id];
     if (!videoElement) return;
-    
+
     if (inView) {
-      
+      // Play video when in view
       videoElement.play().catch(err => {
         console.log('Autoplay prevented:', err);
-        
+        // Add muted attribute and try again for mobile
         videoElement.muted = true;
         videoElement.play().catch(e => 
           console.log('Still cannot autoplay:', e)
         );
       });
     } else {
-      
+      // Pause when out of view
       videoElement.pause();
     }
   };
-  
-  
+
+  // Open direct chat with a user
   const openDirectChat = (user) => {
     setChatUser(user);
     setIsDirectChatOpen(true);
   };
-  
-  
+  // Close direct chat but keep chat state in memory
   const closeDirectChat = () => {
     setIsDirectChatOpen(false);
-    setChatUser(null);
+    // Do not clear chatUser so DirectChat stays mounted, just hide overlay
   };
-  
-  
+
+  // Project list rendering
   const renderProjects = () => {
-    
+    // ... existing code ...
     return projects.map((project) => {
-      
+      // Create ref for IntersectionObserver hook
       const [ref, inView] = useInView({
         threshold: 0.5,
         triggerOnce: false
       });
-      
-      
+
+      // Set up video ref
       const setVideoRef = (element) => {
         if (element) {
           videoRefs.current[project._id] = element;
-        
+          // Initial check for visibility
           if (inView) {
             element.play().catch(err => {
               console.log('Initial autoplay prevented:', err);
@@ -80,14 +107,14 @@ const Community = ({ socket, userId }) => {
           }
         }
       };
-      
-    
+
+      // Watch for changes in view status
       useEffect(() => {
         handleVideoInView(project._id, inView);
       }, [inView, project._id]);
-      
+
       const isUserOnline = onlineUsers.includes(project.userId);
-      
+
       return (
         <div key={project._id} className="project-card" ref={ref}>
           <div className="project-header">
@@ -112,7 +139,7 @@ const Community = ({ socket, userId }) => {
               </button>
             )}
           </div>
-          
+
           {project.projectType === 'image' ? (
             <img src={project.projectUrl} alt={project.description || 'Project'} className="project-media" />
           ) : (
@@ -125,7 +152,7 @@ const Community = ({ socket, userId }) => {
               src={project.projectUrl}
             />
           )}
-          
+
           <div className="project-footer">
             <p>{project.description || 'No description'}</p>
             <div className="project-actions">
@@ -141,33 +168,33 @@ const Community = ({ socket, userId }) => {
       );
     });
   };
-  
+
   return (
     <div className="community-container">
-      
+      {/* ... existing code ... */}
       <div className="projects-container">
         {loading ? <p>Loading...</p> : renderProjects()}
       </div>
-      
-      {isDirectChatOpen && chatUser && (
-        <div className="direct-chat-overlay">
+
+      {/* Keep DirectChat mounted, just toggle overlay visibility */}
+      <div style={{ display: isDirectChatOpen && chatUser ? 'block' : 'none' }} className="direct-chat-overlay">
+        {chatUser && (
           <div className="direct-chat-container">
             <div className="direct-chat-header">
               <h3>Chat with {chatUser.name}</h3>
               <button onClick={closeDirectChat}>Close</button>
             </div>
-            <DirectChat 
-              socket={socket} 
-              userId={userId} 
-              recipientId={chatUser.id}
-              recipientName={chatUser.name}
-              isOnline={onlineUsers.includes(chatUser.id)}
-            />
+            <ChatProvider username={username} roomId={`direct_${userId}_${chatUser.id}`}>
+              <DirectChat 
+                username={username}
+                recipientName={chatUser.name}
+              />
+            </ChatProvider>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
 
-export default Community; 
+export default Community;

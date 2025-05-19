@@ -6,7 +6,7 @@ import { useSocket } from './SocketContext';
 import { Heart, MessageCircle, Share2, Bookmark, Send, X } from 'lucide-react';
 import { debouncedEmit } from '../utils/socketDebounce';
 
-
+// Simplified Community component to fix rendering issues
 const FixedCommunity = () => {
   const { userEmail, userId } = useAuth();
   const { socket, isConnected, connectionError } = useSocket();
@@ -25,20 +25,20 @@ const FixedCommunity = () => {
   const [onlineUsers, setOnlineUsers] = useState({});
   const [isVideoMuted, setIsVideoMuted] = useState(true);
   
-  
+  // Add error state
   const [showSocketError, setShowSocketError] = useState(false);
   const [fetchError, setFetchError] = useState(false);
   
-  
+  // References
   const commentRef = useRef(null);
   const chatRef = useRef(null);
   const notificationsRef = useRef(null);
   
-  
+  // Track fetch attempts to prevent loops
   const fetchingRef = useRef(false);
   const fetchAttemptRef = useRef(0);
 
-  
+  // Prevent double fetches
   const safelyFetchData = useCallback(async () => {
     if (fetchingRef.current) {
       console.log("Already fetching data, ignoring request");
@@ -68,7 +68,7 @@ const FixedCommunity = () => {
       
       console.log(`Fetched ${data.length} projects`);
       
-  
+      // Transform to post format
       const formattedPosts = data.map(project => ({
         id: project._id,
         userId: typeof project.userId === 'object' ? project.userId._id : project.userId,
@@ -84,12 +84,12 @@ const FixedCommunity = () => {
         comments: project.comments || []
       }));
       
-      
+      // Sort by timestamp (newest first)
       formattedPosts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       
       setPosts(formattedPosts);
       
-      
+      // Initialize comments state
       const initialComments = {};
       formattedPosts.forEach(post => {
         initialComments[post.id] = post.comments || [];
@@ -102,26 +102,26 @@ const FixedCommunity = () => {
       setLoading(false);
       fetchingRef.current = false;
       
-      
+      // Reset fetch attempts after successful fetch
       if (posts.length > 0) {
         fetchAttemptRef.current = 0;
       }
     }
   }, [userId, userEmail]);
 
-
+  // Initial data fetch - only run once
   useEffect(() => {
     safelyFetchData();
   }, [safelyFetchData]);
 
-
+  // Refresh data when refreshKey changes
   useEffect(() => {
     if (refreshKey > 0) {
       safelyFetchData();
     }
   }, [refreshKey, safelyFetchData]);
 
-  
+  // Socket connection for real-time notifications and messages
   useEffect(() => {
     if (!socket) {
       console.log('No socket connection available');

@@ -2,8 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FiSend, FiPaperclip, FiSmile, FiImage, FiMoreVertical, FiCheck, FiCheckCircle, FiClock } from 'react-icons/fi';
 import Picker from 'emoji-picker-react';
 import './DirectChat.css';
+import { useChat } from './WebSocketContext';
 
-const DirectChat = ({ socket, userId, recipientId, recipientName, isOnline, recipientAvatar }) => {
+const DirectChat = ({ userId, recipientId, recipientName, isOnline, recipientAvatar }) => {
+  // Use the chat context instead of direct socket prop
+  const { socket, connected, sendMessage: sendChatMessage, sendTypingStatus: sendTypingIndicator, joinRoom } = useChat();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -16,22 +19,29 @@ const DirectChat = ({ socket, userId, recipientId, recipientName, isOnline, reci
   const emojiPickerRef = useRef(null);
   const messageInputRef = useRef(null);
 
-  
+  // Join the direct chat room when component mounts
   useEffect(() => {
-    if (!socket) {
+    if (!connected) {
       console.error('DirectChat: No socket connection available');
       setError('No socket connection available');
       setLoading(false);
       return;
     }
     
-    console.log(`DirectChat: Initializing with userId=${userId}, recipientId=${recipientId}`);
-    console.log('DirectChat: Socket connected status:', socket.connected);
+    // Create a unique room ID for this direct conversation
+    const roomId = userId < recipientId 
+      ? `direct_${userId}_${recipientId}` 
+      : `direct_${recipientId}_${userId}`;
+      
+    console.log(`DirectChat: Initializing direct chat room: ${roomId}`);
     
     setLoading(true);
     setError(null);
     
+    // Join the direct chat room
+    joinRoom(roomId);
     
+    // Emit event to get message history
     console.log('DirectChat: Requesting message history...');
     socket.emit('get_direct_messages', { 
       senderId: userId, 
@@ -48,7 +58,7 @@ const DirectChat = ({ socket, userId, recipientId, recipientName, isOnline, reci
       setLoading(false);
     });
     
-    
+    // Listen for new messages
     const handleDirectMessage = (message) => {
       console.log('DirectChat: Received direct message:', message);
       if (
@@ -58,7 +68,7 @@ const DirectChat = ({ socket, userId, recipientId, recipientName, isOnline, reci
         console.log('DirectChat: Adding message to chat');
         setMessages(prev => [...prev, message]);
         
-        
+        // Mark message as read if it's from the recipient
         if (message.senderId === recipientId) {
           setTimeout(() => {
             socket.emit('markMessageRead', { messageId: message.id });
@@ -74,14 +84,14 @@ const DirectChat = ({ socket, userId, recipientId, recipientName, isOnline, reci
       }
     };
     
-  
+    // Listen for typing indicators
     const handleTypingStatus = (data) => {
       if (data.senderId === recipientId && data.recipientId === userId) {
         setIsTyping(data.isTyping);
       }
     };
     
-    
+    // Listen for read receipts
     const handleReadReceipt = (data) => {
       if (data.messageId) {
         setMessages(prev => 
@@ -97,14 +107,14 @@ const DirectChat = ({ socket, userId, recipientId, recipientName, isOnline, reci
     socket.on('typing_status', handleTypingStatus);
     socket.on('messageRead', handleReadReceipt);
     
-    
+    // Also listen for normal private messages as fallback
     socket.on('receivePrivateMessage', (message) => {
       console.log('DirectChat: Received via receivePrivateMessage:', message);
       if (
         (message.sender === userId && message.receiver === recipientId) ||
         (message.sender === recipientId && message.receiver === userId)
       ) {
-        
+        // Convert to direct_message format
         const formattedMessage = {
           id: message.id,
           senderId: message.sender,
@@ -127,12 +137,12 @@ const DirectChat = ({ socket, userId, recipientId, recipientName, isOnline, reci
     };
   }, [socket, userId, recipientId]);
 
-  
+  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  
+  // Handle clicks outside emoji picker
   useEffect(() => {
     function handleClickOutside(event) {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
@@ -146,168 +156,125 @@ const DirectChat = ({ socket, userId, recipientId, recipientName, isOnline, reci
     };
   }, []);
 
-
+  // Send message
   const sendMessage = (e) => {
     e.preventDefault();
+    if (!newMessage.trim() || !connected) return;
     
-    if (!newMessage.trim()) {
-      console.log('DirectChat: Cannot send empty message');
-      return;
-    }
+    // Generate a temporary ID for the message
+    const tempId = Date.now().toString();
     
-    if (!socket || !socket.connected) {
-      console.error('DirectChat: Cannot send message - socket not connected');
-      setError('Not connected to chat server');
-      return;
-    }
-    
-    console.log(`DirectChat: Sending message to ${recipientId}:`, newMessage);
-    
+    // Create message object
     const messageData = {
+      id: tempId,
+      content: newMessage,
       senderId: userId,
       recipientId: recipientId,
-      content: newMessage.trim(),
-      timestamp: new Date().toISOString()
-    };
-    
-    
-    const optimisticMessage = {
-      ...messageData,
-      id: `temp-${Date.now()}`,
+      timestamp: new Date().toISOString(),
       pending: true
     };
     
-    setMessages(prev => [...prev, optimisticMessage]);
+    // Add to local messages immediately with pending status
+    setMessages(prev => [...prev, messageData]);
+    
+    // Clear input
     setNewMessage('');
     
+    // Scroll to bottom
+    scrollToBottom();
     
-    socket.emit('typing_status', { 
-      senderId: userId, 
-      recipientId: recipientId, 
-      isTyping: false 
-    });
-    
+    // Clear any typing indicator
     if (typingTimeout) {
       clearTimeout(typingTimeout);
       setTypingTimeout(null);
     }
     
+    // Send typing status as false
+    sendTypingIndicator(false);
     
-    socket.emit('send_direct_message', messageData, (response) => {
-      console.log('DirectChat: Send message response:', response);
-      if (response && response.success) {
-        
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.id === optimisticMessage.id 
-              ? { ...optimisticMessage, id: response.messageId, pending: false } 
-              : msg
-          )
-        );
-      } else {
-        console.error('DirectChat: Failed to send message:', response?.error || 'Unknown error');
-        setError(response?.error || 'Failed to send message. Please try again.');
-        
-        
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.id === optimisticMessage.id 
-              ? { ...msg, failed: true, pending: false } 
-              : msg
-          )
-        );
-        
-        
-        console.log('DirectChat: Trying fallback send method...');
-        socket.emit('sendPrivateMessage', {
-          id: `fallback-${Date.now()}`,
-          sender: userId,
-          receiver: recipientId,
-          text: messageData.content,
-          timestamp: messageData.timestamp
-        });
-      }
-    });
-  };
-
-  
-  const handleTyping = (e) => {
-    setNewMessage(e.target.value);
+    // Send the message to server via our chat context
+    sendChatMessage(newMessage);
     
+    // The rest of the message handling will be done via socket.io listeners
+    // in the ChatContext component
     
-    if (!typingTimeout && socket && socket.connected) {
-      socket.emit('typing_status', { 
-        senderId: userId, 
-        recipientId: recipientId, 
-        isTyping: true 
-      });
-      
-      
-      const timeout = setTimeout(() => {
-        if (socket && socket.connected) {
-          socket.emit('typing_status', { 
-            senderId: userId, 
-            recipientId: recipientId, 
-            isTyping: false 
-          });
-        }
-        setTypingTimeout(null);
-      }, 3000);
-      
-      setTypingTimeout(timeout);
-    } else if (typingTimeout) {
-      
-      clearTimeout(typingTimeout);
-      const timeout = setTimeout(() => {
-        if (socket && socket.connected) {
-          socket.emit('typing_status', { 
-            senderId: userId, 
-            recipientId: recipientId, 
-            isTyping: false 
-          });
-        }
-        setTypingTimeout(null);
-      }, 3000);
-      
-      setTypingTimeout(timeout);
+    // Focus back on the input field
+    if (messageInputRef.current) {
+      messageInputRef.current.focus();
     }
   };
 
-  
+  // Handle typing indicator
+  const handleTyping = (e) => {
+    setNewMessage(e.target.value);
+    
+    // Don't send typing events if not connected
+    if (!connected) return;
+    
+    // Set up typing indicator
+    if (e.target.value.trim()) {
+      // Send typing status if not already sent
+      if (!typingTimeout) {
+        console.log('DirectChat: Sending typing indicator (active)');
+        sendTypingIndicator(true);
+      }
+      
+      // Clear any existing timeout
+      if (typingTimeout) {
+        clearTimeout(typingTimeout);
+      }
+      
+      // Set a new timeout to clear typing indicator after 2 seconds of inactivity
+      const timeout = setTimeout(() => {
+        console.log('DirectChat: Sending typing indicator (inactive)');
+        sendTypingIndicator(false);
+        setTypingTimeout(null);
+      }, 2000);
+      
+      setTypingTimeout(timeout);
+    } else if (typingTimeout) {
+      // If the input is empty and we have a timeout, clear the typing indicator
+      clearTimeout(typingTimeout);
+      sendTypingIndicator(false);
+      setTypingTimeout(null);
+    }
+  };
+
+  // Handle emoji selection
   const onEmojiClick = (event, emojiObject) => {
     setNewMessage(prev => prev + emojiObject.emoji);
     messageInputRef.current.focus();
   };
 
-  
+  // Format message timestamp
   const formatTimestamp = (timestamp) => {
     const msgDate = new Date(timestamp);
     const now = new Date();
     
-  
+    // If message is from today, just show the time
     if (msgDate.toDateString() === now.toDateString()) {
       return msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
     
-  
+    // If message is from yesterday, show "Yesterday" with time
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
     if (msgDate.toDateString() === yesterday.toDateString()) {
       return `Yesterday, ${msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     }
     
-    
+    // If message is from this year, show the month and day with time
     if (msgDate.getFullYear() === now.getFullYear()) {
       return msgDate.toLocaleDateString([], { month: 'short', day: 'numeric' }) + 
         ' at ' + msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
     
-    
+    // Otherwise, show full date with time
     return msgDate.toLocaleDateString() + 
       ' at ' + msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  
+  // Check if a new date divider should be displayed
   const shouldShowDateDivider = (message, index) => {
     if (index === 0) return true;
     
@@ -318,31 +285,31 @@ const DirectChat = ({ socket, userId, recipientId, recipientName, isOnline, reci
     return prevDate !== currDate;
   };
 
-  
+  // Format divider date
   const formatDividerDate = (timestamp) => {
     const date = new Date(timestamp);
     const now = new Date();
     
-  
+    // If date is today
     if (date.toDateString() === now.toDateString()) {
       return 'Today';
     }
     
-  
+    // If date is yesterday
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
     if (date.toDateString() === yesterday.toDateString()) {
       return 'Yesterday';
     }
     
-    
+    // If date is within the last 7 days
     const lastWeek = new Date(now);
     lastWeek.setDate(now.getDate() - 7);
     if (date > lastWeek) {
       return date.toLocaleDateString([], { weekday: 'long' });
     }
     
-    
+    // Otherwise, return full date
     return date.toLocaleDateString([], { 
       year: 'numeric', 
       month: 'long', 
@@ -350,12 +317,12 @@ const DirectChat = ({ socket, userId, recipientId, recipientName, isOnline, reci
     });
   };
 
-  
+  // Trigger file input click
   const handleAttachmentClick = () => {
     fileInputRef.current.click();
   };
 
-  
+  // Handle file selection (placeholder - would need backend implementation)
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
